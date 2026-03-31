@@ -5,6 +5,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { ConversationsModule } from './modules/conversations/conversations.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { UsersModule } from './modules/users/users.module';
 import { PrismaModule } from './prisma/prisma.module';
 
@@ -19,6 +21,8 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     UsersModule,
     PostsModule,
+    NotificationsModule,
+    ConversationsModule,
     ReviewsModule,
     HealthModule,
   ],

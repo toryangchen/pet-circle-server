@@ -2,13 +2,17 @@ import {
   Controller,
   Get,
   Headers,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
   Body,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { UserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ok } from '../../common/response/api-response';
@@ -20,11 +24,13 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { FeedQueryDto } from './dto/feed-query.dto';
 import { MyPostsQueryDto } from './dto/my-posts-query.dto';
 import { PostsService } from './posts.service';
+import { ConversationsService } from '../conversations/conversations.service';
 
 @Controller('posts')
 export class PostsController {
   constructor(
     private readonly postsService: PostsService,
+    private readonly conversationsService: ConversationsService,
     private readonly miniappTokenService: MiniappTokenService,
     private readonly prismaService: PrismaService,
   ) {}
@@ -59,6 +65,23 @@ export class PostsController {
     @Body() dto: CreatePostDto,
   ) {
     return ok(await this.postsService.createPost(user, dto));
+  }
+
+  @Post(':id/contact-request')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(MiniappAuthGuard)
+  async requestContact(
+    @Param('id') postId: string,
+    @CurrentMiniappUser() user: AuthenticatedMiniappUser,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.conversationsService.requestContact(postId, user);
+    response.status(result.created ? HttpStatus.CREATED : HttpStatus.OK);
+
+    return ok({
+      conversationId: result.conversationId,
+      status: result.status,
+    });
   }
 
   @Patch(':id/offline')
