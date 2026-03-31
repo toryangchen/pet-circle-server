@@ -12,6 +12,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { PhoneAuthorizationRequiredException } from '../exceptions/phone-authorization-required.exception';
 
 @Catch()
 export class ApiExceptionFilter implements ExceptionFilter {
@@ -33,6 +34,14 @@ export class ApiExceptionFilter implements ExceptionFilter {
   }
 
   private toApiError(exception: unknown) {
+    if (exception instanceof PhoneAuthorizationRequiredException) {
+      return {
+        status: exception.getStatus(),
+        code: 40006,
+        message: this.getHttpExceptionMessage(exception),
+      };
+    }
+
     if (exception instanceof UnauthorizedException) {
       return {
         status: exception.getStatus(),
