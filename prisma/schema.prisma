@@ -1,0 +1,328 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum AdminUserRole {
+  SUPER_ADMIN
+  OPERATOR
+}
+
+enum AdminUserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum PostType {
+  PET_SOCIAL
+  SERVICE
+}
+
+enum ServiceCategory {
+  ADOPTION
+  SECOND_HAND
+  HOME_FEEDING
+  BOARDING
+}
+
+enum PostStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  OFFLINE
+  COMPLETED
+}
+
+enum AssetType {
+  IMAGE
+}
+
+enum CommentStatus {
+  NORMAL
+  DELETED
+}
+
+enum NotificationType {
+  LIKE_POST
+  COMMENT_POST
+  REPLY_COMMENT
+  CONTACT_REQUEST
+  CONTACT_APPROVED
+}
+
+enum ConversationStatus {
+  INIT
+  PENDING
+  APPROVED
+  IGNORED
+}
+
+enum MessageSenderType {
+  USER
+  SYSTEM
+}
+
+enum ConversationMessageType {
+  REQUEST_CONTACT
+  SHARE_WECHAT
+}
+
+enum ReviewAction {
+  APPROVE
+  REJECT
+  OFFLINE
+}
+
+model User {
+  id                     String         @id @default(auto()) @map("_id") @db.ObjectId
+  openid                 String         @unique
+  unionid                String?
+  nickname               String?
+  avatarUrl              String?
+  phone                  String?
+  phoneAuthorized        Boolean        @default(false)
+  profileAuthorized      Boolean        @default(false)
+  cityDefault            String?        @default("西安")
+  status                 UserStatus     @default(ACTIVE)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  posts                  Post[]
+  comments               Comment[]
+  likes                  Like[]
+  favorites              Favorite[]
+  notifications          Notification[]
+  initiatedConversations Conversation[] @relation("ConversationInitiator")
+  receivedConversations  Conversation[] @relation("ConversationReceiver")
+
+  @@index([createdAt])
+}
+
+model AdminUser {
+  id           String          @id @default(auto()) @map("_id") @db.ObjectId
+  username     String          @unique
+  passwordHash String
+  role         AdminUserRole   @default(OPERATOR)
+  status       AdminUserStatus @default(ACTIVE)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  reviewLogs   ReviewLog[]
+
+  @@index([createdAt])
+}
+
+model Post {
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  type              PostType
+  serviceCategory   ServiceCategory?
+  title             String
+  content           String
+  city              String
+  status            PostStatus        @default(PENDING)
+  authorId          String            @db.ObjectId
+  coverAssetId      String?           @db.ObjectId
+  publishedAt       DateTime?
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  completedAt       DateTime?
+  offlineAt         DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  author            User              @relation(fields: [authorId], references: [id])
+  assets            PostAsset[]
+  contact           PostContact?
+  adoptionDetail    AdoptionDetail?
+  secondHandDetail  SecondHandDetail?
+  homeFeedingDetail HomeFeedingDetail?
+  boardingDetail    BoardingDetail?
+  comments          Comment[]
+  likes             Like[]
+  favorites         Favorite[]
+  notifications     Notification[]
+  conversations     Conversation[]
+  reviewLogs        ReviewLog[]
+
+  @@index([status, type, createdAt])
+  @@index([status, serviceCategory, city, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model PostAsset {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  postId    String    @db.ObjectId
+  type      AssetType @default(IMAGE)
+  url       String
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  post      Post      @relation(fields: [postId], references: [id])
+
+  @@index([postId, sortOrder])
+}
+
+model PostContact {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  postId      String   @unique @db.ObjectId
+  wechatId    String?
+  phone       String?
+  contactName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  post        Post     @relation(fields: [postId], references: [id])
+}
+
+model AdoptionDetail {
+  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
+  postId               String   @unique @db.ObjectId
+  petType              String
+  age                  String
+  gender               String
+  neutered             Boolean
+  adoptionRequirements String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  post                 Post     @relation(fields: [postId], references: [id])
+}
+
+model SecondHandDetail {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  postId        String   @unique @db.ObjectId
+  itemType      String
+  itemCondition String
+  price         String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  post          Post     @relation(fields: [postId], references: [id])
+}
+
+model HomeFeedingDetail {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  postId        String   @unique @db.ObjectId
+  serviceArea   String
+  availableTime String
+  price         String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  post          Post     @relation(fields: [postId], references: [id])
+}
+
+model BoardingDetail {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  postId              String   @unique @db.ObjectId
+  boardingEnvironment String
+  acceptedPetTypes    String[]
+  price               String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  post                Post     @relation(fields: [postId], references: [id])
+}
+
+model Notification {
+  id             String           @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String           @db.ObjectId
+  actorId        String?          @db.ObjectId
+  type           NotificationType
+  postId         String?          @db.ObjectId
+  commentId      String?          @db.ObjectId
+  conversationId String?          @db.ObjectId
+  isRead         Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  user           User             @relation(fields: [userId], references: [id])
+  post           Post?            @relation(fields: [postId], references: [id])
+
+  @@index([userId, isRead, createdAt])
+  @@index([conversationId])
+}
+
+model Conversation {
+  id          String             @id @default(auto()) @map("_id") @db.ObjectId
+  postId      String             @db.ObjectId
+  initiatorId String             @db.ObjectId
+  receiverId  String             @db.ObjectId
+  status      ConversationStatus @default(INIT)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  post        Post               @relation(fields: [postId], references: [id])
+  initiator   User               @relation("ConversationInitiator", fields: [initiatorId], references: [id])
+  receiver    User               @relation("ConversationReceiver", fields: [receiverId], references: [id])
+  messages    ConversationMessage[]
+
+  @@unique([postId, initiatorId])
+  @@index([receiverId, status, updatedAt])
+  @@index([initiatorId, updatedAt])
+}
+
+model ConversationMessage {
+  id             String                  @id @default(auto()) @map("_id") @db.ObjectId
+  conversationId String                  @db.ObjectId
+  senderType     MessageSenderType
+  messageType    ConversationMessageType
+  content        String
+  createdAt      DateTime                @default(now())
+  conversation   Conversation            @relation(fields: [conversationId], references: [id])
+
+  @@index([conversationId, createdAt])
+}
+
+model Comment {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  postId    String        @db.ObjectId
+  userId    String        @db.ObjectId
+  parentId  String?       @db.ObjectId
+  rootId    String?       @db.ObjectId
+  content   String
+  status    CommentStatus @default(NORMAL)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  post      Post          @relation(fields: [postId], references: [id])
+  user      User          @relation(fields: [userId], references: [id])
+
+  @@index([postId, createdAt])
+  @@index([rootId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model Like {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  postId    String   @db.ObjectId
+  userId    String   @db.ObjectId
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+  @@index([userId, createdAt])
+}
+
+model Favorite {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  postId    String   @db.ObjectId
+  userId    String   @db.ObjectId
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+  @@index([userId, createdAt])
+}
+
+model ReviewLog {
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  postId     String       @db.ObjectId
+  reviewerId String       @db.ObjectId
+  action     ReviewAction
+  reason     String?
+  createdAt  DateTime     @default(now())
+  post       Post         @relation(fields: [postId], references: [id])
+  reviewer   AdminUser    @relation(fields: [reviewerId], references: [id])
+
+  @@index([postId, createdAt])
+  @@index([reviewerId, createdAt])
+}
