@@ -79,7 +79,12 @@ export class PostsService {
       throw new NotFoundException('Post not found.');
     }
 
-    return toPostDetail(post, viewer);
+    const viewerState =
+      viewer?.id === undefined
+        ? { liked: false, favorited: false }
+        : await this.getViewerState(postId, viewer.id);
+
+    return toPostDetail(post, viewer, viewerState);
   }
 
   async createPost(author: User, dto: CreatePostDto) {
@@ -242,6 +247,45 @@ export class PostsService {
     if (post.authorId !== userId) {
       throw new ForbiddenException('Only the author can manage this post.');
     }
+  }
+
+  private async getViewerState(postId: string, userId: string) {
+    const prisma = this.prismaService as PrismaService & {
+      like?: {
+        findUnique: (args: {
+          where: { postId_userId: { postId: string; userId: string } };
+        }) => Promise<unknown>;
+      };
+      favorite?: {
+        findUnique: (args: {
+          where: { postId_userId: { postId: string; userId: string } };
+        }) => Promise<unknown>;
+      };
+    };
+
+    const [like, favorite] = await Promise.all([
+      prisma.like?.findUnique?.({
+        where: {
+          postId_userId: {
+            postId,
+            userId,
+          },
+        },
+      }) ?? Promise.resolve(null),
+      prisma.favorite?.findUnique?.({
+        where: {
+          postId_userId: {
+            postId,
+            userId,
+          },
+        },
+      }) ?? Promise.resolve(null),
+    ]);
+
+    return {
+      liked: !!like,
+      favorited: !!favorite,
+    };
   }
 
   private validateCreatePayload(dto: CreatePostDto): DetailFieldName | null {

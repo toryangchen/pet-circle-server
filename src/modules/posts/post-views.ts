@@ -31,6 +31,10 @@ export type HydratedPost = Prisma.PostGetPayload<{
 }>;
 
 type ViewerLike = Pick<User, 'id' | 'phoneAuthorized'> | null | undefined;
+type ViewerState = {
+  liked: boolean;
+  favorited: boolean;
+};
 
 function getStats(post: HydratedPost) {
   return {
@@ -69,7 +73,11 @@ export function toFeedItem(post: HydratedPost) {
   };
 }
 
-export function toPostDetail(post: HydratedPost, viewer?: ViewerLike) {
+export function toPostDetail(
+  post: HydratedPost,
+  viewer?: ViewerLike,
+  viewerState: ViewerState = { liked: false, favorited: false },
+) {
   const canViewContact =
     post.type === 'SERVICE' &&
     !!post.contact &&
@@ -110,8 +118,7 @@ export function toPostDetail(post: HydratedPost, viewer?: ViewerLike) {
         : undefined,
     stats: getStats(post),
     viewerState: {
-      liked: false,
-      favorited: false,
+      ...viewerState,
       phoneAuthorized: !!viewer?.phoneAuthorized,
     },
     createdAt: post.createdAt,

@@ -12,6 +12,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { CommentLevelExceededException } from '../exceptions/comment-level-exceeded.exception';
 import { PhoneAuthorizationRequiredException } from '../exceptions/phone-authorization-required.exception';
 
 @Catch()
@@ -34,6 +35,14 @@ export class ApiExceptionFilter implements ExceptionFilter {
   }
 
   private toApiError(exception: unknown) {
+    if (exception instanceof CommentLevelExceededException) {
+      return {
+        status: exception.getStatus(),
+        code: 40007,
+        message: this.getHttpExceptionMessage(exception),
+      };
+    }
+
     if (exception instanceof PhoneAuthorizationRequiredException) {
       return {
         status: exception.getStatus(),

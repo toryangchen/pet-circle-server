@@ -2,6 +2,9 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from './config/env.validation';
 import { AuthModule } from './modules/auth/auth.module';
+import { CommentsModule } from './modules/comments/comments.module';
+import { FavoritesModule } from './modules/favorites/favorites.module';
+import { LikesModule } from './modules/likes/likes.module';
 import { HealthModule } from './modules/health/health.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
@@ -21,6 +24,9 @@ import { PrismaModule } from './prisma/prisma.module';
     AuthModule,
     UsersModule,
     PostsModule,
+    CommentsModule,
+    LikesModule,
+    FavoritesModule,
     NotificationsModule,
     ConversationsModule,
     ReviewsModule,
