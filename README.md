@@ -41,10 +41,12 @@ npm install
 cp .env.example .env
 ```
 
-3. 修改 `.env` 中的 MongoDB 连接信息
+3. 修改 `.env` 中的 MongoDB 连接信息和微信小程序鉴权配置
 
 ```env
 DATABASE_URL="mongodb://127.0.0.1:27017/pet_circle?directConnection=true"
+WECHAT_APP_ID="wx-your-miniapp-appid"
+WECHAT_APP_SECRET="replace-with-your-miniapp-secret"
 ```
 
 4. 生成 Prisma Client
@@ -108,6 +110,6 @@ GET /api/health
 ## 下一步建议
 
 - 增加用户模块、宠物模块、社区帖子模块
-- 接入微信小程序登录态校验
+- 接入并联调真实微信小程序登录态校验
 - 增加统一响应格式与异常过滤器
 - 增加 seed 流程与按模块拆分的后端领域实现
