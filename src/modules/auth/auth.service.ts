@@ -76,6 +76,24 @@ export class AuthService {
           );
         }
 
+        const legacyPhoneOwner = await tx.user.findFirst({
+          where: {
+            phone: phoneInfo.phoneNumber,
+            NOT: {
+              id: userId,
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (legacyPhoneOwner) {
+          throw new ConflictException(
+            'Phone number is already bound to another user.',
+          );
+        }
+
         await tx.phoneBinding.upsert({
           where: {
             userId,

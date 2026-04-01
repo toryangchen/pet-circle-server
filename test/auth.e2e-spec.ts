@@ -180,6 +180,34 @@ describe('AuthController (e2e)', () => {
           return null;
         },
       ),
+      findFirst: jest.fn(
+        async ({
+          where,
+          select,
+        }: {
+          where: {
+            phone?: string;
+            NOT?: { id?: string };
+          };
+          select?: { id?: boolean };
+        }) => {
+          const matchedUser =
+            users.find(
+              (user) =>
+                user.phone === where.phone && user.id !== where.NOT?.id,
+            ) ?? null;
+
+          if (!matchedUser) {
+            return null;
+          }
+
+          if (select?.id) {
+            return { id: matchedUser.id };
+          }
+
+          return matchedUser;
+        },
+      ),
       update: jest.fn(
         async ({
           where,
@@ -242,6 +270,7 @@ describe('AuthController (e2e)', () => {
     prismaService.phoneBinding.upsert.mockClear();
     prismaService.user.upsert.mockClear();
     prismaService.user.findUnique.mockClear();
+    prismaService.user.findFirst.mockClear();
     prismaService.user.update.mockClear();
     prismaService.adminUser.findUnique.mockClear();
 
@@ -513,6 +542,47 @@ describe('AuthController (e2e)', () => {
         }),
       ]),
     );
+  });
+
+  it('still rejects binding when the conflicting phone only exists on a legacy user row', async () => {
+    users.push({
+      id: 'legacy-phone-owner',
+      openid: 'openid-legacy-phone-owner',
+      unionid: null,
+      nickname: '旧手机号用户',
+      avatarUrl: null,
+      phone: '13700002222',
+      phoneAuthorized: true,
+      profileAuthorized: false,
+      cityDefault: '西安',
+      status: UserStatus.ACTIVE,
+      createdAt: new Date('2026-03-30T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-31T00:00:00.000Z'),
+    });
+    weChatAuthService.exchangeLoginCode.mockResolvedValue({
+      openid: 'openid-bind-phone-current-user-legacy-check',
+    });
+    weChatAuthService.exchangePhoneCode.mockResolvedValue({
+      phoneNumber: '13700002222',
+    });
+
+    const loginResponse = await request(app.getHttpServer())
+      .post('/api/auth/miniapp/login')
+      .send({ code: 'wx-login-code' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/miniapp/bind-phone')
+      .set('Authorization', `Bearer ${loginResponse.body.data.token}`)
+      .send({ code: 'wx-phone-code' })
+      .expect(409)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          code: 40005,
+          message: 'Phone number is already bound to another user.',
+          data: null,
+        });
+      });
   });
 
   it('returns the authenticated miniapp user summary with masked phone when bound', async () => {

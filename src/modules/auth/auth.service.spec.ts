@@ -22,6 +22,7 @@ describe('AuthService', () => {
       upsert: jest.fn(),
     },
     user: {
+      findFirst: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
     },
@@ -36,6 +37,7 @@ describe('AuthService', () => {
     prismaService.adminUser.findUnique.mockReset();
     prismaService.phoneBinding.findUnique.mockReset();
     prismaService.phoneBinding.upsert.mockReset();
+    prismaService.user.findFirst.mockReset();
     prismaService.user.upsert.mockReset();
     prismaService.user.update.mockReset();
     weChatAuthService.exchangeLoginCode.mockReset();
@@ -218,6 +220,7 @@ describe('AuthService', () => {
         userId: true,
       },
     });
+    expect(prismaService.user.findFirst).not.toHaveBeenCalled();
     expect(prismaService.user.update).not.toHaveBeenCalled();
   });
 
@@ -226,6 +229,7 @@ describe('AuthService', () => {
       phoneNumber: '13812345678',
     });
     prismaService.phoneBinding.findUnique.mockResolvedValue(null);
+    prismaService.user.findFirst.mockResolvedValue(null);
     prismaService.phoneBinding.upsert.mockResolvedValue({
       id: 'binding-1',
       phone: '13812345678',
@@ -265,6 +269,17 @@ describe('AuthService', () => {
         phone: '13812345678',
       },
     });
+    expect(prismaService.user.findFirst).toHaveBeenCalledWith({
+      where: {
+        phone: '13812345678',
+        NOT: {
+          id: 'user-current',
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
     expect(prismaService.user.update).toHaveBeenCalledWith({
       where: { id: 'user-current' },
       data: {
@@ -272,6 +287,25 @@ describe('AuthService', () => {
         phoneAuthorized: true,
       },
     });
+  });
+
+  it('rejects binding a phone number that only exists in legacy user rows', async () => {
+    weChatAuthService.exchangePhoneCode.mockResolvedValue({
+      phoneNumber: '13812345678',
+    });
+    prismaService.phoneBinding.findUnique.mockResolvedValue(null);
+    prismaService.user.findFirst.mockResolvedValue({
+      id: 'legacy-phone-owner',
+    });
+
+    await expect(
+      authService.bindPhone('user-current', 'wx-phone-code'),
+    ).rejects.toThrow(
+      new ConflictException('Phone number is already bound to another user.'),
+    );
+
+    expect(prismaService.phoneBinding.upsert).not.toHaveBeenCalled();
+    expect(prismaService.user.update).not.toHaveBeenCalled();
   });
 
   it('returns an admin bearer token for an active admin with valid credentials', async () => {

@@ -91,38 +91,66 @@ export class ConversationsService {
       };
     }
 
-    const created = await this.prismaService.$transaction(
-      async (tx: Prisma.TransactionClient) => {
-        const conversation = await tx.conversation.create({
-          data: {
-            postId,
-            initiatorId: initiator.id,
-            receiverId: post.authorId,
-            status: ConversationStatus.PENDING,
-          },
-        });
+    let created;
+    try {
+      created = await this.prismaService.$transaction(
+        async (tx: Prisma.TransactionClient) => {
+          const conversation = await tx.conversation.create({
+            data: {
+              postId,
+              initiatorId: initiator.id,
+              receiverId: post.authorId,
+              status: ConversationStatus.PENDING,
+            },
+          });
 
-        await tx.conversationMessage.create({
-          data: {
+          await tx.conversationMessage.create({
+            data: {
+              conversationId: conversation.id,
+              senderType: MessageSenderType.SYSTEM,
+              messageType: ConversationMessageType.REQUEST_CONTACT,
+              content: `我对您发布的《${post.title}》很感兴趣，请求交换联系方式`,
+            },
+          });
+
+          await this.notificationsService.createNotification(tx, {
+            userId: post.authorId,
+            actorId: initiator.id,
+            type: NotificationType.CONTACT_REQUEST,
+            postId: post.id,
+            commentId: null,
             conversationId: conversation.id,
-            senderType: MessageSenderType.SYSTEM,
-            messageType: ConversationMessageType.REQUEST_CONTACT,
-            content: `我对您发布的《${post.title}》很感兴趣，请求交换联系方式`,
-          },
-        });
+          });
 
-        await this.notificationsService.createNotification(tx, {
-          userId: post.authorId,
-          actorId: initiator.id,
-          type: NotificationType.CONTACT_REQUEST,
-          postId: post.id,
-          commentId: null,
-          conversationId: conversation.id,
-        });
+          return conversation;
+        },
+      );
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        const racedConversation =
+          await this.prismaService.conversation.findUnique({
+            where: {
+              postId_initiatorId: {
+                postId,
+                initiatorId: initiator.id,
+              },
+            },
+          });
 
-        return conversation;
-      },
-    );
+        if (racedConversation) {
+          return {
+            conversationId: racedConversation.id,
+            status: racedConversation.status,
+            created: false,
+          };
+        }
+      }
+
+      throw error;
+    }
 
     return {
       conversationId: created.id,
