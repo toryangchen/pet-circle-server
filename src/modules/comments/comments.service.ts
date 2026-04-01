@@ -83,7 +83,7 @@ export class CommentsService {
       throw new NotFoundException('Comment not found.');
     }
 
-    if (parent.parentId) {
+    if (parent.parentId || parent.rootId) {
       throw new CommentLevelExceededException();
     }
 
@@ -151,6 +151,21 @@ export class CommentsService {
     });
 
     if (updated.count !== 1) {
+      const latest = await this.prismaService.comment.findUnique({
+        where: { id: commentId },
+      });
+
+      if (
+        latest &&
+        latest.userId === userId &&
+        latest.status === CommentStatus.DELETED
+      ) {
+        return {
+          id: commentId,
+          status: CommentStatus.DELETED,
+        };
+      }
+
       throw new NotFoundException('Comment not found.');
     }
 

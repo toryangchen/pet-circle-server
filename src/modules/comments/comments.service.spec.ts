@@ -299,6 +299,37 @@ describe('CommentsService', () => {
     expect(prismaService.comment.create).not.toHaveBeenCalled();
   });
 
+  it('rejects replying to a root comment with an unexpected rootId', async () => {
+    prismaService.comment.findUnique.mockResolvedValue({
+      id: 'comment-root-dirty',
+      postId: 'post-1',
+      userId: 'reply-author',
+      parentId: null,
+      rootId: 'unexpected-root',
+      status: CommentStatus.NORMAL,
+      content: '脏数据一级评论',
+      createdAt: new Date('2026-04-01T00:05:00.000Z'),
+      user: {
+        id: 'reply-author',
+        nickname: '脏数据评论人',
+        avatarUrl: null,
+      },
+    });
+
+    await expect(
+      service.replyComment(
+        'comment-root-dirty',
+        {
+          id: 'user-1',
+        } as never,
+        { content: '继续回复' },
+      ),
+    ).rejects.toThrow(new CommentLevelExceededException());
+
+    expect(prismaService.post.findUnique).not.toHaveBeenCalled();
+    expect(prismaService.comment.create).not.toHaveBeenCalled();
+  });
+
   it('allows only the author to delete a normal comment', async () => {
     prismaService.comment.findUnique.mockResolvedValue({
       id: 'comment-1',
@@ -355,5 +386,27 @@ describe('CommentsService', () => {
     });
 
     expect(prismaService.comment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('returns deleted status when a concurrent delete wins the update race', async () => {
+    prismaService.comment.findUnique
+      .mockResolvedValueOnce({
+        id: 'comment-1',
+        userId: 'comment-author',
+        status: CommentStatus.NORMAL,
+      })
+      .mockResolvedValueOnce({
+        id: 'comment-1',
+        userId: 'comment-author',
+        status: CommentStatus.DELETED,
+      });
+    prismaService.comment.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      service.deleteComment('comment-1', 'comment-author'),
+    ).resolves.toEqual({
+      id: 'comment-1',
+      status: CommentStatus.DELETED,
+    });
   });
 });
