@@ -634,6 +634,35 @@ describe('Interactions (e2e)', () => {
       });
   });
 
+  it('rejects listing or creating comments for non-approved posts', async () => {
+    const author = seedUser({ phoneAuthorized: true });
+    const commenter = seedUser({ phoneAuthorized: true });
+    const pendingPost = seedPost({
+      type: PostType.SERVICE,
+      serviceCategory: ServiceCategory.HOME_FEEDING,
+      status: PostStatus.PENDING,
+      authorId: author.id,
+      title: '待审核服务',
+      content: '审核前不可评论',
+    });
+
+    await request(app.getHttpServer())
+      .get(`/api/posts/${pendingPost.id}/comments`)
+      .expect(404)
+      .expect(({ body }) => {
+        expect(body.code).toBe(40004);
+      });
+
+    await request(app.getHttpServer())
+      .post(`/api/posts/${pendingPost.id}/comments`)
+      .set('Authorization', bearer(miniappTokenService.sign(commenter.id)))
+      .send({ content: '审核前留言' })
+      .expect(404)
+      .expect(({ body }) => {
+        expect(body.code).toBe(40004);
+      });
+  });
+
   it('logically deletes comments and keeps repeated like and favorite calls idempotent', async () => {
     const author = seedUser({ phoneAuthorized: true });
     const commenter = seedUser({ phoneAuthorized: true });
@@ -730,6 +759,34 @@ describe('Interactions (e2e)', () => {
       .expect(200)
       .expect(({ body }) => {
         expect(body.data).toEqual({ id: post.id, favorited: false });
+      });
+  });
+
+  it('rejects deleting comments for non-authors', async () => {
+    const author = seedUser({ phoneAuthorized: true });
+    const commenter = seedUser({ phoneAuthorized: true });
+    const otherUser = seedUser({ phoneAuthorized: true });
+    const post = seedPost({
+      type: PostType.SERVICE,
+      serviceCategory: ServiceCategory.BOARDING,
+      status: PostStatus.APPROVED,
+      authorId: author.id,
+      title: '寄养服务',
+      content: '只有评论作者能删',
+    });
+
+    await request(app.getHttpServer())
+      .post(`/api/posts/${post.id}/comments`)
+      .set('Authorization', bearer(miniappTokenService.sign(commenter.id)))
+      .send({ content: '不能让别人删' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .delete('/api/comments/comment-1')
+      .set('Authorization', bearer(miniappTokenService.sign(otherUser.id)))
+      .expect(403)
+      .expect(({ body }) => {
+        expect(body.code).toBe(40003);
       });
   });
 
