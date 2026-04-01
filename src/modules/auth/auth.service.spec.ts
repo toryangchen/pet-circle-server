@@ -13,11 +13,15 @@ import { WeChatAuthService } from './wechat-auth.service';
 describe('AuthService', () => {
   let authService: AuthService;
   const prismaService = {
+    $transaction: jest.fn(),
     adminUser: {
       findUnique: jest.fn(),
     },
+    phoneBinding: {
+      findUnique: jest.fn(),
+      upsert: jest.fn(),
+    },
     user: {
-      findFirst: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
     },
@@ -28,12 +32,18 @@ describe('AuthService', () => {
   };
 
   beforeEach(async () => {
+    prismaService.$transaction.mockReset();
     prismaService.adminUser.findUnique.mockReset();
-    prismaService.user.findFirst.mockReset();
+    prismaService.phoneBinding.findUnique.mockReset();
+    prismaService.phoneBinding.upsert.mockReset();
     prismaService.user.upsert.mockReset();
     prismaService.user.update.mockReset();
     weChatAuthService.exchangeLoginCode.mockReset();
     weChatAuthService.exchangePhoneCode.mockReset();
+    prismaService.$transaction.mockImplementation(
+      async (callback: (tx: typeof prismaService) => Promise<unknown>) =>
+        callback(prismaService),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -190,8 +200,8 @@ describe('AuthService', () => {
     weChatAuthService.exchangePhoneCode.mockResolvedValue({
       phoneNumber: '13812345678',
     });
-    prismaService.user.findFirst.mockResolvedValue({
-      id: 'user-existing-phone-owner',
+    prismaService.phoneBinding.findUnique.mockResolvedValue({
+      userId: 'user-existing-phone-owner',
     });
 
     await expect(
@@ -200,18 +210,68 @@ describe('AuthService', () => {
       new ConflictException('Phone number is already bound to another user.'),
     );
 
-    expect(prismaService.user.findFirst).toHaveBeenCalledWith({
+    expect(prismaService.phoneBinding.findUnique).toHaveBeenCalledWith({
       where: {
         phone: '13812345678',
-        NOT: {
-          id: 'user-current',
-        },
       },
       select: {
-        id: true,
+        userId: true,
       },
     });
     expect(prismaService.user.update).not.toHaveBeenCalled();
+  });
+
+  it('stores the phone binding and updates the miniapp user in one transaction', async () => {
+    weChatAuthService.exchangePhoneCode.mockResolvedValue({
+      phoneNumber: '13812345678',
+    });
+    prismaService.phoneBinding.findUnique.mockResolvedValue(null);
+    prismaService.phoneBinding.upsert.mockResolvedValue({
+      id: 'binding-1',
+      phone: '13812345678',
+      userId: 'user-current',
+    });
+    prismaService.user.update.mockResolvedValue({
+      id: 'user-current',
+      openid: 'openid-current',
+      unionid: null,
+      nickname: null,
+      avatarUrl: null,
+      phone: '13812345678',
+      phoneAuthorized: true,
+      profileAuthorized: false,
+      cityDefault: '西安',
+      status: UserStatus.ACTIVE,
+      createdAt: new Date('2026-03-31T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-31T00:00:00.000Z'),
+    });
+
+    await expect(
+      authService.bindPhone('user-current', 'wx-phone-code'),
+    ).resolves.toEqual({
+      phoneAuthorized: true,
+      phoneMasked: '138****5678',
+    });
+
+    expect(prismaService.phoneBinding.upsert).toHaveBeenCalledWith({
+      where: {
+        userId: 'user-current',
+      },
+      update: {
+        phone: '13812345678',
+      },
+      create: {
+        userId: 'user-current',
+        phone: '13812345678',
+      },
+    });
+    expect(prismaService.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-current' },
+      data: {
+        phone: '13812345678',
+        phoneAuthorized: true,
+      },
+    });
   });
 
   it('returns an admin bearer token for an active admin with valid credentials', async () => {

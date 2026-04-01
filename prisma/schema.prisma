@@ -96,6 +96,7 @@ model User {
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
   posts                  Post[]
+  phoneBinding           PhoneBinding?
   comments               Comment[]
   likes                  Like[]
   favorites              Favorite[]
@@ -104,6 +105,15 @@ model User {
   receivedConversations  Conversation[] @relation("ConversationReceiver")
 
   @@index([createdAt])
+}
+
+model PhoneBinding {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  phone     String   @unique
+  userId    String   @unique @db.ObjectId
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model AdminUser {

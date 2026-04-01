@@ -3,6 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { AdminUser, AdminUserStatus, User, UserStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AdminTokenService } from './admin-token.service';
@@ -58,36 +59,61 @@ export class AuthService {
     code: string,
   ): Promise<MiniappBindPhoneResult> {
     const phoneInfo = await this.weChatAuthService.exchangePhoneCode(code);
-    const existingPhoneOwner = await this.prismaService.user.findFirst({
-      where: {
-        phone: phoneInfo.phoneNumber,
-        NOT: {
-          id: userId,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
+    try {
+      const user = await this.prismaService.$transaction(async (tx) => {
+        const existingPhoneBinding = await tx.phoneBinding.findUnique({
+          where: {
+            phone: phoneInfo.phoneNumber,
+          },
+          select: {
+            userId: true,
+          },
+        });
 
-    if (existingPhoneOwner) {
-      throw new ConflictException(
-        'Phone number is already bound to another user.',
-      );
+        if (existingPhoneBinding && existingPhoneBinding.userId !== userId) {
+          throw new ConflictException(
+            'Phone number is already bound to another user.',
+          );
+        }
+
+        await tx.phoneBinding.upsert({
+          where: {
+            userId,
+          },
+          update: {
+            phone: phoneInfo.phoneNumber,
+          },
+          create: {
+            userId,
+            phone: phoneInfo.phoneNumber,
+          },
+        });
+
+        return tx.user.update({
+          where: { id: userId },
+          data: {
+            phone: phoneInfo.phoneNumber,
+            phoneAuthorized: true,
+          },
+        });
+      });
+
+      return {
+        phoneAuthorized: user.phoneAuthorized,
+        phoneMasked: maskPhone(phoneInfo.phoneNumber),
+      };
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Phone number is already bound to another user.',
+        );
+      }
+
+      throw error;
     }
-
-    const user = await this.prismaService.user.update({
-      where: { id: userId },
-      data: {
-        phone: phoneInfo.phoneNumber,
-        phoneAuthorized: true,
-      },
-    });
-
-    return {
-      phoneAuthorized: user.phoneAuthorized,
-      phoneMasked: maskPhone(phoneInfo.phoneNumber),
-    };
   }
 
   async loginAdmin(

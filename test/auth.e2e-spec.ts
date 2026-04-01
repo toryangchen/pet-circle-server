@@ -33,6 +33,14 @@ type TestUser = {
   updatedAt: Date;
 };
 
+type TestPhoneBinding = {
+  id: string;
+  phone: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 type TestAdminUser = {
   id: string;
   username: string;
@@ -47,6 +55,7 @@ describe('AuthController (e2e)', () => {
   let app: INestApplication<App>;
   let users: TestUser[];
   let adminUsers: TestAdminUser[];
+  let phoneBindings: TestPhoneBinding[];
 
   const weChatAuthService = {
     exchangeLoginCode: jest.fn(),
@@ -55,6 +64,65 @@ describe('AuthController (e2e)', () => {
 
   const prismaService = {
     onModuleInit: jest.fn(),
+    $transaction: jest.fn(async (callback: (tx: typeof prismaService) => Promise<unknown>) =>
+      callback(prismaService),
+    ),
+    phoneBinding: {
+      findUnique: jest.fn(
+        async ({
+          where,
+          select,
+        }: {
+          where: { phone: string };
+          select?: { userId?: boolean };
+        }) => {
+          const binding =
+            phoneBindings.find((item) => item.phone === where.phone) ?? null;
+
+          if (!binding) {
+            return null;
+          }
+
+          if (select?.userId) {
+            return {
+              userId: binding.userId,
+            };
+          }
+
+          return binding;
+        },
+      ),
+      upsert: jest.fn(
+        async ({
+          where,
+          update,
+          create,
+        }: {
+          where: { userId: string };
+          update: { phone: string };
+          create: { userId: string; phone: string };
+        }): Promise<TestPhoneBinding> => {
+          const existingBinding =
+            phoneBindings.find((item) => item.userId === where.userId) ?? null;
+
+          if (existingBinding) {
+            existingBinding.phone = update.phone;
+            existingBinding.updatedAt = new Date('2026-03-31T01:00:00.000Z');
+            return existingBinding;
+          }
+
+          const binding: TestPhoneBinding = {
+            id: `phone-binding-${phoneBindings.length + 1}`,
+            phone: create.phone,
+            userId: create.userId,
+            createdAt: new Date('2026-03-31T00:00:00.000Z'),
+            updatedAt: new Date('2026-03-31T00:00:00.000Z'),
+          };
+          phoneBindings.push(binding);
+          return binding;
+        },
+      ),
+    },
     user: {
       upsert: jest.fn(
         async ({
@@ -112,36 +180,6 @@ describe('AuthController (e2e)', () => {
           return null;
         },
       ),
-      findFirst: jest.fn(
-        async ({
-          where,
-          select,
-        }: {
-          where: {
-            phone?: string;
-            NOT?: { id?: string };
-          };
-          select?: { id?: boolean };
-        }): Promise<Pick<TestUser, 'id'> | TestUser | null> => {
-          const matchedUser =
-            users.find(
-              (user) =>
-                user.phone === where.phone && user.id !== where.NOT?.id,
-            ) ?? null;
-
-          if (!matchedUser) {
-            return null;
-          }
-
-          if (select?.id) {
-            return {
-              id: matchedUser.id,
-            };
-          }
-
-          return matchedUser;
-        },
-      ),
       update: jest.fn(
         async ({
           where,
@@ -196,11 +234,14 @@ describe('AuthController (e2e)', () => {
   beforeEach(async () => {
     users = [];
     adminUsers = [];
+    phoneBindings = [];
     weChatAuthService.exchangeLoginCode.mockReset();
     weChatAuthService.exchangePhoneCode.mockReset();
+    prismaService.$transaction.mockClear();
+    prismaService.phoneBinding.findUnique.mockClear();
+    prismaService.phoneBinding.upsert.mockClear();
     prismaService.user.upsert.mockClear();
     prismaService.user.findUnique.mockClear();
-    prismaService.user.findFirst.mockClear();
     prismaService.user.update.mockClear();
     prismaService.adminUser.findUnique.mockClear();
 
@@ -412,6 +453,13 @@ describe('AuthController (e2e)', () => {
       createdAt: new Date('2026-03-30T00:00:00.000Z'),
       updatedAt: new Date('2026-03-31T00:00:00.000Z'),
     });
+    phoneBindings.push({
+      id: 'phone-binding-1',
+      phone: '13812345678',
+      userId: 'user-phone-owner',
+      createdAt: new Date('2026-03-30T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-31T00:00:00.000Z'),
+    });
     weChatAuthService.exchangeLoginCode.mockResolvedValue({
       openid: 'openid-bind-phone-current-user',
     });
@@ -436,6 +484,35 @@ describe('AuthController (e2e)', () => {
           data: null,
         });
       });
+  });
+
+  it('persists a dedicated phone binding record when binding phone succeeds', async () => {
+    weChatAuthService.exchangeLoginCode.mockResolvedValue({
+      openid: 'openid-bind-phone-with-binding',
+    });
+    weChatAuthService.exchangePhoneCode.mockResolvedValue({
+      phoneNumber: '13700001111',
+    });
+
+    const loginResponse = await request(app.getHttpServer())
+      .post('/api/auth/miniapp/login')
+      .send({ code: 'wx-login-code' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/miniapp/bind-phone')
+      .set('Authorization', `Bearer ${loginResponse.body.data.token}`)
+      .send({ code: 'wx-phone-code' })
+      .expect(200);
+
+    expect(phoneBindings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          phone: '13700001111',
+          userId: 'user-1',
+        }),
+      ]),
+    );
   });
 
   it('returns the authenticated miniapp user summary with masked phone when bound', async () => {
