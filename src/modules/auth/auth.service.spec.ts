@@ -124,6 +124,7 @@ describe('AuthService', () => {
         id: 'user-new',
         nickname: null,
         avatarUrl: null,
+        bgType: 'main-bg-01',
         phoneAuthorized: false,
         profileAuthorized: false,
       },
@@ -168,8 +169,10 @@ describe('AuthService', () => {
         id: 'user-existing',
         nickname: '已有用户',
         avatarUrl: 'https://example.com/avatar.png',
+        bgType: 'main-bg-01',
         phoneAuthorized: false,
         profileAuthorized: true,
+        phoneMasked: undefined,
       },
     });
   });

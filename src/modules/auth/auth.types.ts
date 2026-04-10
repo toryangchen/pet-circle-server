@@ -4,6 +4,7 @@ export type MiniappUserSummary = {
   id: string;
   nickname: string | null;
   avatarUrl: string | null;
+  bgType: string;
   phoneAuthorized: boolean;
   profileAuthorized: boolean;
   phoneMasked?: string;

@@ -173,6 +173,7 @@ export class AuthService {
       id: user.id,
       nickname: user.nickname,
       avatarUrl: user.avatarUrl,
+      bgType: user.bgType ?? 'main-bg-01',
       phoneAuthorized: user.phoneAuthorized,
       profileAuthorized: user.profileAuthorized,
       phoneMasked:

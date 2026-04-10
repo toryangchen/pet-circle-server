@@ -88,6 +88,7 @@ model User {
   unionid                String?
   nickname               String?
   avatarUrl              String?
+  bgType                 String         @default("main-bg-01")
   phone                  String?
   phoneAuthorized        Boolean        @default(false)
   profileAuthorized      Boolean        @default(false)
