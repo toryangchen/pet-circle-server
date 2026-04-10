@@ -36,6 +36,10 @@ type ViewerState = {
   favorited: boolean;
 };
 
+type FeedViewerState = {
+  favorited: boolean;
+};
+
 function getStats(post: HydratedPost) {
   return {
     likeCount: post._count?.likes ?? 0,
@@ -58,7 +62,10 @@ function getRejectReason(post: HydratedPost) {
   );
 }
 
-export function toFeedItem(post: HydratedPost) {
+export function toFeedItem(
+  post: HydratedPost,
+  viewerState: FeedViewerState = { favorited: false },
+) {
   return {
     id: post.id,
     type: post.type,
@@ -68,7 +75,10 @@ export function toFeedItem(post: HydratedPost) {
     summary: post.content,
     coverImage: getCoverImage(post),
     city: post.city,
+    author: post.author?.nickname ?? null,
+    authorAvatarUrl: post.author?.avatarUrl ?? null,
     stats: getStats(post),
+    viewerState,
     createdAt: post.createdAt,
   };
 }

@@ -36,8 +36,12 @@ export class PostsController {
   ) {}
 
   @Get('feed')
-  async getFeed(@Query() dto: FeedQueryDto) {
-    return ok(await this.postsService.getFeed(dto));
+  async getFeed(
+    @Query() dto: FeedQueryDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    const viewer = await this.resolveViewer(authorization);
+    return ok(await this.postsService.getFeed(dto, viewer));
   }
 
   @Get('my')

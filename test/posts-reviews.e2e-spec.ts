@@ -140,6 +140,13 @@ type TestReviewLog = {
   createdAt: Date;
 };
 
+type TestFavorite = {
+  id: string;
+  postId: string;
+  userId: string;
+  createdAt: Date;
+};
+
 describe('Posts and Reviews (e2e)', () => {
   let app: INestApplication<App>;
   let miniappTokenService: MiniappTokenService;
@@ -155,6 +162,7 @@ describe('Posts and Reviews (e2e)', () => {
   let homeFeedingDetails: TestHomeFeedingDetail[];
   let boardingDetails: TestBoardingDetail[];
   let reviewLogs: TestReviewLog[];
+  let favorites: TestFavorite[];
 
   const prismaService = {
     onModuleInit: jest.fn(),
@@ -460,6 +468,41 @@ describe('Posts and Reviews (e2e)', () => {
           ),
       ),
     },
+    favorite: {
+      findMany: jest.fn(
+        async ({
+          where,
+        }: {
+          where?: { userId?: string; postId?: { in?: string[] } };
+        }): Promise<TestFavorite[]> =>
+          favorites.filter((favorite) => {
+            if (where?.userId && favorite.userId !== where.userId) {
+              return false;
+            }
+
+            if (
+              where?.postId?.in &&
+              !where.postId.in.includes(favorite.postId)
+            ) {
+              return false;
+            }
+
+            return true;
+          }),
+      ),
+      findUnique: jest.fn(
+        async ({
+          where,
+        }: {
+          where: { postId_userId: { postId: string; userId: string } };
+        }): Promise<TestFavorite | null> =>
+          favorites.find(
+            (favorite) =>
+              favorite.postId === where.postId_userId.postId &&
+              favorite.userId === where.postId_userId.userId,
+          ) ?? null,
+      ),
+    },
   };
 
   beforeEach(async () => {
@@ -473,6 +516,7 @@ describe('Posts and Reviews (e2e)', () => {
     homeFeedingDetails = [];
     boardingDetails = [];
     reviewLogs = [];
+    favorites = [];
 
     prismaService.onModuleInit.mockReset();
     prismaService.$transaction.mockClear();
@@ -492,6 +536,8 @@ describe('Posts and Reviews (e2e)', () => {
     prismaService.boardingDetail.create.mockClear();
     prismaService.reviewLog.create.mockClear();
     prismaService.reviewLog.findMany.mockClear();
+    prismaService.favorite.findMany.mockClear();
+    prismaService.favorite.findUnique.mockClear();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -621,6 +667,7 @@ describe('Posts and Reviews (e2e)', () => {
 
   it('returns only approved posts in the public feed', async () => {
     const author = seedUser({ phoneAuthorized: true, nickname: '已审核作者' });
+    const viewer = seedUser({ phoneAuthorized: true, nickname: '收藏用户' });
     const approvedPost = seedPost({
       type: PostType.SERVICE,
       serviceCategory: ServiceCategory.BOARDING,
@@ -638,9 +685,11 @@ describe('Posts and Reviews (e2e)', () => {
       title: '待审核寄养',
       content: '这条不该出现在 feed',
     });
+    seedFavorite(approvedPost.id, viewer.id);
 
     await request(app.getHttpServer())
       .get('/api/posts/feed')
+      .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .query({
         channel: 'SERVICE',
         serviceCategory: 'BOARDING',
@@ -654,6 +703,11 @@ describe('Posts and Reviews (e2e)', () => {
           id: approvedPost.id,
           type: 'SERVICE',
           serviceCategory: 'BOARDING',
+          author: '已审核作者',
+          authorAvatarUrl: author.avatarUrl,
+          viewerState: {
+            favorited: true,
+          },
         });
       });
   });
@@ -1225,6 +1279,17 @@ describe('Posts and Reviews (e2e)', () => {
     return log;
   }
 
+  function seedFavorite(postId: string, userId: string) {
+    const favorite: TestFavorite = {
+      id: `seed-favorite-${favorites.length + 1}`,
+      postId,
+      userId,
+      createdAt: new Date('2026-03-31T08:50:00.000Z'),
+    };
+    favorites.push(favorite);
+    return favorite;
+  }
+
   function filterPosts(where: Record<string, unknown> = {}) {
     return posts.filter((post) => {
       return Object.entries(where).every(([key, value]) => {
@@ -1270,7 +1335,7 @@ describe('Posts and Reviews (e2e)', () => {
       _count: {
         likes: 0,
         comments: 0,
-        favorites: 0,
+        favorites: favorites.filter((favorite) => favorite.postId === post.id).length,
       },
     };
   }

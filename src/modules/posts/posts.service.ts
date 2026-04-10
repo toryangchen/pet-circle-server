@@ -44,7 +44,7 @@ const detailFieldByCategory: Record<ServiceCategory, DetailFieldName> = {
 export class PostsService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async getFeed(dto: FeedQueryDto) {
+  async getFeed(dto: FeedQueryDto, viewer?: User | null) {
     const page = dto.page ?? 1;
     const pageSize = dto.pageSize ?? 10;
     const where = {
@@ -69,7 +69,23 @@ export class PostsService {
       this.prismaService.post.count({ where }),
     ]);
 
-    return toPagedResult(posts.map(toFeedItem), page, pageSize, total);
+    const favoritedPostIds = viewer?.id
+      ? await this.getFavoritedPostIds(
+          posts.map((post) => post.id),
+          viewer.id,
+        )
+      : new Set<string>();
+
+    return toPagedResult(
+      posts.map((post) =>
+        toFeedItem(post, {
+          favorited: favoritedPostIds.has(post.id),
+        }),
+      ),
+      page,
+      pageSize,
+      total,
+    );
   }
 
   async getDetail(postId: string, viewer?: User | null) {
@@ -286,6 +302,36 @@ export class PostsService {
       liked: !!like,
       favorited: !!favorite,
     };
+  }
+
+  private async getFavoritedPostIds(postIds: string[], userId: string) {
+    if (postIds.length === 0) {
+      return new Set<string>();
+    }
+
+    const prisma = this.prismaService as PrismaService & {
+      favorite?: {
+        findMany: (args: {
+          where: { userId: string; postId: { in: string[] } };
+          select: { postId: true };
+        }) => Promise<Array<{ postId: string }>>;
+      };
+    };
+
+    const favorites =
+      (await prisma.favorite?.findMany?.({
+        where: {
+          userId,
+          postId: {
+            in: postIds,
+          },
+        },
+        select: {
+          postId: true,
+        },
+      })) ?? [];
+
+    return new Set(favorites.map((favorite) => favorite.postId));
   }
 
   private validateCreatePayload(dto: CreatePostDto): DetailFieldName | null {
