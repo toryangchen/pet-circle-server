@@ -8,6 +8,13 @@ type UserProfileSummary = {
   id: string;
   nickname: string | null;
   avatarUrl: string | null;
+  gender: string | null;
+  birthday: string | null;
+  region: {
+    province: string | null;
+    city: string | null;
+    district: string | null;
+  };
   profileAuthorized: boolean;
 };
 
@@ -19,11 +26,24 @@ export class UsersService {
     userId: string,
     dto: UpdateMyProfileDto,
   ): Promise<UserProfileSummary> {
+    const birthday =
+      dto.birthday === undefined || dto.birthday === ''
+        ? dto.birthday === '' ? null : undefined
+        : new Date(`${dto.birthday}T00:00:00.000Z`);
     const user = await this.prismaService.user.update({
       where: { id: userId },
       data: {
         ...(dto.nickname !== undefined ? { nickname: dto.nickname } : {}),
         ...(dto.avatarUrl !== undefined ? { avatarUrl: dto.avatarUrl } : {}),
+        ...(dto.gender !== undefined ? { gender: dto.gender || null } : {}),
+        ...(birthday !== undefined ? { birthday } : {}),
+        ...(dto.regionProvince !== undefined
+          ? { regionProvince: dto.regionProvince || null }
+          : {}),
+        ...(dto.regionCity !== undefined ? { regionCity: dto.regionCity || null } : {}),
+        ...(dto.regionDistrict !== undefined
+          ? { regionDistrict: dto.regionDistrict || null }
+          : {}),
         ...(dto.profileAuthorized !== undefined
           ? { profileAuthorized: dto.profileAuthorized }
           : {}),
@@ -34,6 +54,13 @@ export class UsersService {
       id: user.id,
       nickname: user.nickname,
       avatarUrl: user.avatarUrl,
+      gender: user.gender ?? null,
+      birthday: user.birthday ? user.birthday.toISOString().slice(0, 10) : null,
+      region: {
+        province: user.regionProvince ?? null,
+        city: user.regionCity ?? user.cityDefault ?? null,
+        district: user.regionDistrict ?? null,
+      },
       profileAuthorized: user.profileAuthorized,
     };
   }

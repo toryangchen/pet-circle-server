@@ -5,6 +5,13 @@ export type MiniappUserSummary = {
   nickname: string | null;
   avatarUrl: string | null;
   bgType: string;
+  gender: string | null;
+  birthday: string | null;
+  region: {
+    province: string | null;
+    city: string | null;
+    district: string | null;
+  };
   phoneAuthorized: boolean;
   profileAuthorized: boolean;
   phoneMasked?: string;

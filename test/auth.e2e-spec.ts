@@ -12,6 +12,18 @@ process.env.DATABASE_URL =
 process.env.JWT_SECRET = 'test-miniapp-secret';
 process.env.WECHAT_APP_ID = 'wx-test-appid';
 process.env.WECHAT_APP_SECRET = 'wx-test-secret';
+process.env.COS_SECRET_ID = 'test-cos-secret-id';
+process.env.COS_SECRET_KEY = 'test-cos-secret-key';
+process.env.COS_BUCKET = 'petcircle-1322740877';
+process.env.COS_REGION = 'ap-beijing';
+
+const getCredentialMock = jest.fn();
+const getPolicyMock = jest.fn();
+
+jest.mock('qcloud-cos-sts', () => ({
+  getCredential: (...args: unknown[]) => getCredentialMock(...args),
+  getPolicy: (...args: unknown[]) => getPolicyMock(...args),
+}));
 
 import { AppModule } from '../src/app.module';
 import { applyGlobalAppSetup } from '../src/app.setup';
@@ -24,6 +36,12 @@ type TestUser = {
   unionid: string | null;
   nickname: string | null;
   avatarUrl: string | null;
+  bgType: string;
+  gender: string | null;
+  birthday: Date | null;
+  regionProvince: string | null;
+  regionCity: string | null;
+  regionDistrict: string | null;
   phone: string | null;
   phoneAuthorized: boolean;
   profileAuthorized: boolean;
@@ -151,6 +169,12 @@ describe('AuthController (e2e)', () => {
             unionid: create.unionid ?? null,
             nickname: null,
             avatarUrl: null,
+            bgType: 'main-bg-01',
+            gender: null,
+            birthday: null,
+            regionProvince: null,
+            regionCity: null,
+            regionDistrict: null,
             phone: null,
             phoneAuthorized: false,
             profileAuthorized: false,
@@ -217,7 +241,16 @@ describe('AuthController (e2e)', () => {
           data: Partial<
             Pick<
               TestUser,
-              'phone' | 'phoneAuthorized' | 'nickname' | 'avatarUrl' | 'profileAuthorized'
+              | 'phone'
+              | 'phoneAuthorized'
+              | 'nickname'
+              | 'avatarUrl'
+              | 'profileAuthorized'
+              | 'gender'
+              | 'birthday'
+              | 'regionProvince'
+              | 'regionCity'
+              | 'regionDistrict'
             >
           >;
         }): Promise<TestUser> => {
@@ -240,6 +273,21 @@ describe('AuthController (e2e)', () => {
           }
           if (data.profileAuthorized !== undefined) {
             user.profileAuthorized = data.profileAuthorized;
+          }
+          if (data.gender !== undefined) {
+            user.gender = data.gender;
+          }
+          if (data.birthday !== undefined) {
+            user.birthday = data.birthday;
+          }
+          if (data.regionProvince !== undefined) {
+            user.regionProvince = data.regionProvince;
+          }
+          if (data.regionCity !== undefined) {
+            user.regionCity = data.regionCity;
+          }
+          if (data.regionDistrict !== undefined) {
+            user.regionDistrict = data.regionDistrict;
           }
           user.updatedAt = new Date('2026-03-31T01:00:00.000Z');
 
@@ -273,6 +321,22 @@ describe('AuthController (e2e)', () => {
     prismaService.user.findFirst.mockClear();
     prismaService.user.update.mockClear();
     prismaService.adminUser.findUnique.mockClear();
+    getCredentialMock.mockReset();
+    getPolicyMock.mockReset();
+    getPolicyMock.mockReturnValue({
+      version: '2.0',
+      statement: [],
+    });
+    getCredentialMock.mockResolvedValue({
+      credentials: {
+        tmpSecretId: 'tmp-secret-id',
+        tmpSecretKey: 'tmp-secret-key',
+        sessionToken: 'tmp-session-token',
+      },
+      startTime: 1712912400,
+      expiredTime: 1712913300,
+      requestId: 'request-1',
+    });
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -314,6 +378,13 @@ describe('AuthController (e2e)', () => {
               nickname: null,
               avatarUrl: null,
               bgType: 'main-bg-01',
+              gender: null,
+              birthday: null,
+              region: {
+                province: null,
+                city: '西安',
+                district: null,
+              },
               phoneAuthorized: false,
               profileAuthorized: false,
             },
@@ -475,6 +546,12 @@ describe('AuthController (e2e)', () => {
       unionid: null,
       nickname: '已有手机号用户',
       avatarUrl: null,
+      bgType: 'main-bg-01',
+      gender: null,
+      birthday: null,
+      regionProvince: null,
+      regionCity: null,
+      regionDistrict: null,
       phone: '13812345678',
       phoneAuthorized: true,
       profileAuthorized: false,
@@ -552,6 +629,12 @@ describe('AuthController (e2e)', () => {
       unionid: null,
       nickname: '旧手机号用户',
       avatarUrl: null,
+      bgType: 'main-bg-01',
+      gender: null,
+      birthday: null,
+      regionProvince: null,
+      regionCity: null,
+      regionDistrict: null,
       phone: '13700002222',
       phoneAuthorized: true,
       profileAuthorized: false,
@@ -593,6 +676,12 @@ describe('AuthController (e2e)', () => {
       unionid: null,
       nickname: '宠友圈用户',
       avatarUrl: 'https://example.com/avatar.png',
+      bgType: 'main-bg-01',
+      gender: '女',
+      birthday: new Date('2020-08-18T00:00:00.000Z'),
+      regionProvince: '陕西省',
+      regionCity: '西安市',
+      regionDistrict: '雁塔区',
       phone: '13900001234',
       phoneAuthorized: true,
       profileAuthorized: true,
@@ -623,12 +712,97 @@ describe('AuthController (e2e)', () => {
             nickname: '宠友圈用户',
             avatarUrl: 'https://example.com/avatar.png',
             bgType: 'main-bg-01',
+            gender: '女',
+            birthday: '2020-08-18',
+            region: {
+              province: '陕西省',
+              city: '西安市',
+              district: '雁塔区',
+            },
             phoneAuthorized: true,
             profileAuthorized: true,
             phoneMasked: '139****1234',
           },
         });
       });
+  });
+
+  it('returns a COS upload credential for the authenticated miniapp user', async () => {
+    users.push({
+      id: 'user-cos',
+      openid: 'openid-cos',
+      unionid: null,
+      nickname: '上传用户',
+      avatarUrl: null,
+      bgType: 'main-bg-01',
+      gender: null,
+      birthday: null,
+      regionProvince: null,
+      regionCity: '西安',
+      regionDistrict: null,
+      phone: null,
+      phoneAuthorized: false,
+      profileAuthorized: false,
+      cityDefault: '西安',
+      status: UserStatus.ACTIVE,
+      createdAt: new Date('2026-03-30T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-31T00:00:00.000Z'),
+    });
+    weChatAuthService.exchangeLoginCode.mockResolvedValue({
+      openid: 'openid-cos',
+    });
+
+    const loginResponse = await request(app.getHttpServer())
+      .post('/api/auth/miniapp/login')
+      .send({ code: 'wx-login-code' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/api/assets/cos-sts')
+      .set('Authorization', `Bearer ${loginResponse.body.data.token}`)
+      .send({
+        kind: 'avatar',
+        filename: 'buddy.png',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          code: 0,
+          message: 'ok',
+          data: {
+            bucket: 'petcircle-1322740877',
+            region: 'ap-beijing',
+            key: expect.stringMatching(
+              /^miniapp\/avatar\/user-cos\/\d+-[a-z0-9]{6}\.png$/,
+            ),
+            resourceUrl: expect.stringMatching(
+              /^https:\/\/petcircle-1322740877\.cos\.ap-beijing\.myqcloud\.com\/miniapp\/avatar\/user-cos\/\d+-[a-z0-9]{6}\.png$/,
+            ),
+            startTime: 1712912400,
+            expiredTime: 1712913300,
+            credentials: {
+              tmpSecretId: 'tmp-secret-id',
+              tmpSecretKey: 'tmp-secret-key',
+              sessionToken: 'tmp-session-token',
+            },
+          },
+        });
+      });
+
+    expect(getPolicyMock).toHaveBeenCalledWith([
+      expect.objectContaining({
+        action: 'name/cos:PutObject',
+        bucket: 'petcircle-1322740877',
+        region: 'ap-beijing',
+      }),
+    ]);
+    expect(getCredentialMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        secretId: 'test-cos-secret-id',
+        secretKey: 'test-cos-secret-key',
+        durationSeconds: 900,
+      }),
+    );
   });
 
   it('updates the current miniapp user profile and returns the updated summary', async () => {
@@ -638,6 +812,12 @@ describe('AuthController (e2e)', () => {
       unionid: null,
       nickname: '旧昵称',
       avatarUrl: 'https://example.com/old-avatar.png',
+      bgType: 'main-bg-01',
+      gender: null,
+      birthday: null,
+      regionProvince: null,
+      regionCity: '西安',
+      regionDistrict: null,
       phone: null,
       phoneAuthorized: false,
       profileAuthorized: false,
@@ -661,6 +841,11 @@ describe('AuthController (e2e)', () => {
       .send({
         nickname: '新昵称',
         avatarUrl: 'https://example.com/new-avatar.png',
+        gender: '男',
+        birthday: '2024-06-01',
+        regionProvince: '陕西省',
+        regionCity: '西安市',
+        regionDistrict: '碑林区',
         profileAuthorized: true,
       })
       .expect(200)
@@ -672,6 +857,13 @@ describe('AuthController (e2e)', () => {
             id: 'user-profile',
             nickname: '新昵称',
             avatarUrl: 'https://example.com/new-avatar.png',
+            gender: '男',
+            birthday: '2024-06-01',
+            region: {
+              province: '陕西省',
+              city: '西安市',
+              district: '碑林区',
+            },
             profileAuthorized: true,
           },
         });
@@ -680,6 +872,11 @@ describe('AuthController (e2e)', () => {
     expect(users[0]).toMatchObject({
       nickname: '新昵称',
       avatarUrl: 'https://example.com/new-avatar.png',
+      gender: '男',
+      birthday: new Date('2024-06-01T00:00:00.000Z'),
+      regionProvince: '陕西省',
+      regionCity: '西安市',
+      regionDistrict: '碑林区',
       profileAuthorized: true,
       phoneAuthorized: false,
     });
@@ -692,6 +889,12 @@ describe('AuthController (e2e)', () => {
       unionid: null,
       nickname: '旧昵称',
       avatarUrl: 'https://example.com/old-avatar.png',
+      bgType: 'main-bg-01',
+      gender: null,
+      birthday: null,
+      regionProvince: null,
+      regionCity: null,
+      regionDistrict: null,
       phone: null,
       phoneAuthorized: false,
       profileAuthorized: false,
@@ -751,6 +954,12 @@ describe('AuthController (e2e)', () => {
       unionid: null,
       nickname: null,
       avatarUrl: null,
+      bgType: 'main-bg-01',
+      gender: null,
+      birthday: null,
+      regionProvince: null,
+      regionCity: null,
+      regionDistrict: null,
       phone: null,
       phoneAuthorized: false,
       profileAuthorized: false,

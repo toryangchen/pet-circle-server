@@ -165,6 +165,14 @@ export class AuthService {
     return this.toMiniappUserSummary(user, true);
   }
 
+  private formatBirthday(birthday: Date | null | undefined) {
+    if (!birthday) {
+      return null;
+    }
+
+    return birthday.toISOString().slice(0, 10);
+  }
+
   private toMiniappUserSummary(
     user: User,
     includeMaskedPhone = false,
@@ -174,6 +182,13 @@ export class AuthService {
       nickname: user.nickname,
       avatarUrl: user.avatarUrl,
       bgType: user.bgType ?? 'main-bg-01',
+      gender: user.gender ?? null,
+      birthday: this.formatBirthday(user.birthday),
+      region: {
+        province: user.regionProvince ?? null,
+        city: user.regionCity ?? user.cityDefault ?? null,
+        district: user.regionDistrict ?? null,
+      },
       phoneAuthorized: user.phoneAuthorized,
       profileAuthorized: user.profileAuthorized,
       phoneMasked:

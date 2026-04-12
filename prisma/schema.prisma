@@ -89,6 +89,11 @@ model User {
   nickname               String?
   avatarUrl              String?
   bgType                 String         @default("main-bg-01")
+  gender                 String?
+  birthday               DateTime?
+  regionProvince         String?
+  regionCity             String?
+  regionDistrict         String?
   phone                  String?
   phoneAuthorized        Boolean        @default(false)
   profileAuthorized      Boolean        @default(false)

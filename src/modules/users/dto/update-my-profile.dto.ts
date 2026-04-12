@@ -1,4 +1,11 @@
-import { IsBoolean, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+} from 'class-validator';
 
 export class UpdateMyProfileDto {
   @IsOptional()
@@ -15,4 +22,28 @@ export class UpdateMyProfileDto {
   @IsOptional()
   @IsBoolean()
   profileAuthorized?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  gender?: string;
+
+  @IsOptional()
+  @IsDateString()
+  birthday?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  regionProvince?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  regionCity?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  regionDistrict?: string;
 }
