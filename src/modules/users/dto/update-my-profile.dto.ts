@@ -25,6 +25,11 @@ export class UpdateMyProfileDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(30)
+  bgType?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(20)
   gender?: string;
 

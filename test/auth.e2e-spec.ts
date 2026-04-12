@@ -245,6 +245,7 @@ describe('AuthController (e2e)', () => {
               | 'phoneAuthorized'
               | 'nickname'
               | 'avatarUrl'
+              | 'bgType'
               | 'profileAuthorized'
               | 'gender'
               | 'birthday'
@@ -270,6 +271,9 @@ describe('AuthController (e2e)', () => {
           }
           if (data.avatarUrl !== undefined) {
             user.avatarUrl = data.avatarUrl;
+          }
+          if (data.bgType !== undefined) {
+            user.bgType = data.bgType;
           }
           if (data.profileAuthorized !== undefined) {
             user.profileAuthorized = data.profileAuthorized;
@@ -841,6 +845,7 @@ describe('AuthController (e2e)', () => {
       .send({
         nickname: '新昵称',
         avatarUrl: 'https://example.com/new-avatar.png',
+        bgType: 'main-bg-03',
         gender: '男',
         birthday: '2024-06-01',
         regionProvince: '陕西省',
@@ -857,6 +862,7 @@ describe('AuthController (e2e)', () => {
             id: 'user-profile',
             nickname: '新昵称',
             avatarUrl: 'https://example.com/new-avatar.png',
+            bgType: 'main-bg-03',
             gender: '男',
             birthday: '2024-06-01',
             region: {
@@ -872,6 +878,7 @@ describe('AuthController (e2e)', () => {
     expect(users[0]).toMatchObject({
       nickname: '新昵称',
       avatarUrl: 'https://example.com/new-avatar.png',
+      bgType: 'main-bg-03',
       gender: '男',
       birthday: new Date('2024-06-01T00:00:00.000Z'),
       regionProvince: '陕西省',
@@ -879,6 +886,77 @@ describe('AuthController (e2e)', () => {
       regionDistrict: '碑林区',
       profileAuthorized: true,
       phoneAuthorized: false,
+    });
+  });
+
+  it('supports patching a single user profile field at a time', async () => {
+    users.push({
+      id: 'user-profile-single-field',
+      openid: 'openid-profile-single-field',
+      unionid: null,
+      nickname: '旧昵称',
+      avatarUrl: 'https://example.com/avatar.png',
+      bgType: 'main-bg-01',
+      gender: '女',
+      birthday: new Date('2024-01-01T00:00:00.000Z'),
+      regionProvince: '陕西省',
+      regionCity: '西安市',
+      regionDistrict: '雁塔区',
+      phone: null,
+      phoneAuthorized: false,
+      profileAuthorized: false,
+      cityDefault: '西安',
+      status: UserStatus.ACTIVE,
+      createdAt: new Date('2026-03-30T00:00:00.000Z'),
+      updatedAt: new Date('2026-03-31T00:00:00.000Z'),
+    });
+    weChatAuthService.exchangeLoginCode.mockResolvedValue({
+      openid: 'openid-profile-single-field',
+    });
+
+    const loginResponse = await request(app.getHttpServer())
+      .post('/api/auth/miniapp/login')
+      .send({ code: 'wx-login-code' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch('/api/users/me/profile')
+      .set('Authorization', `Bearer ${loginResponse.body.data.token}`)
+      .send({
+        bgType: 'main-bg-02',
+      })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual({
+          code: 0,
+          message: 'ok',
+          data: {
+            id: 'user-profile-single-field',
+            nickname: '旧昵称',
+            avatarUrl: 'https://example.com/avatar.png',
+            bgType: 'main-bg-02',
+            gender: '女',
+            birthday: '2024-01-01',
+            region: {
+              province: '陕西省',
+              city: '西安市',
+              district: '雁塔区',
+            },
+            profileAuthorized: false,
+          },
+        });
+      });
+
+    expect(users[0]).toMatchObject({
+      nickname: '旧昵称',
+      avatarUrl: 'https://example.com/avatar.png',
+      bgType: 'main-bg-02',
+      gender: '女',
+      birthday: new Date('2024-01-01T00:00:00.000Z'),
+      regionProvince: '陕西省',
+      regionCity: '西安市',
+      regionDistrict: '雁塔区',
+      profileAuthorized: false,
     });
   });
 

@@ -8,6 +8,7 @@ type UserProfileSummary = {
   id: string;
   nickname: string | null;
   avatarUrl: string | null;
+  bgType: string;
   gender: string | null;
   birthday: string | null;
   region: {
@@ -35,6 +36,7 @@ export class UsersService {
       data: {
         ...(dto.nickname !== undefined ? { nickname: dto.nickname } : {}),
         ...(dto.avatarUrl !== undefined ? { avatarUrl: dto.avatarUrl } : {}),
+        ...(dto.bgType !== undefined ? { bgType: dto.bgType } : {}),
         ...(dto.gender !== undefined ? { gender: dto.gender || null } : {}),
         ...(birthday !== undefined ? { birthday } : {}),
         ...(dto.regionProvince !== undefined
@@ -54,6 +56,7 @@ export class UsersService {
       id: user.id,
       nickname: user.nickname,
       avatarUrl: user.avatarUrl,
+      bgType: user.bgType,
       gender: user.gender ?? null,
       birthday: user.birthday ? user.birthday.toISOString().slice(0, 10) : null,
       region: {
