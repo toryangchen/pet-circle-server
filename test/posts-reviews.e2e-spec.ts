@@ -637,6 +637,37 @@ describe('Posts and Reviews (e2e)', () => {
       });
   });
 
+  it('publishes a service post without contact data for miniapp publish flow', async () => {
+    const author = seedUser({ phoneAuthorized: true });
+
+    await request(app.getHttpServer())
+      .post('/api/posts')
+      .set('Authorization', bearer(miniappTokenService.sign(author.id)))
+      .send({
+        type: 'SERVICE',
+        serviceCategory: 'BOARDING',
+        title: '国庆期间可寄养小型犬',
+        content: '家里有独立房间，每天会拍照反馈',
+        city: '西安',
+        images: [
+          'https://example.com/service-boarding-1.jpg',
+          'https://example.com/service-boarding-2.jpg',
+        ],
+        boardingDetail: {
+          boardingEnvironment: '家庭寄养，独立活动区域',
+          acceptedPetTypes: ['小型犬'],
+          price: '120/天',
+        },
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.data).toEqual({
+          id: 'post-1',
+          status: 'PENDING',
+        });
+      });
+  });
+
   it('rejects mismatched service category and detail payloads', async () => {
     const author = seedUser({ phoneAuthorized: true });
 

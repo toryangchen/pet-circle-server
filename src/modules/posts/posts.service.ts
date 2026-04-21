@@ -132,7 +132,7 @@ export class PostsService {
           })),
         });
 
-        if (dto.contact) {
+        if (this.hasContactData(dto.contact)) {
           await tx.postContact.create({
             data: {
               postId: post.id,
@@ -358,12 +358,6 @@ export class PostsService {
       throw new BadRequestException('Service posts require a service category.');
     }
 
-    if (!dto.contact || (!dto.contact.wechatId && !dto.contact.phone)) {
-      throw new BadRequestException(
-        'Service posts require at least one contact method.',
-      );
-    }
-
     const expectedDetailField = detailFieldByCategory[dto.serviceCategory];
 
     if (
@@ -422,5 +416,15 @@ export class PostsService {
         },
       });
     }
+  }
+
+  private hasContactData(
+    dto: CreatePostDto['contact'],
+  ): dto is NonNullable<CreatePostDto['contact']> {
+    if (!dto) {
+      return false;
+    }
+
+    return Boolean(dto.wechatId || dto.phone || dto.contactName);
   }
 }
