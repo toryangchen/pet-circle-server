@@ -560,7 +560,7 @@ describe('Posts and Reviews (e2e)', () => {
     }
   });
 
-  it('publishes a pet-social post into pending review', async () => {
+  it('publishes a pet-social post directly as approved', async () => {
     const author = seedUser({ phoneAuthorized: true });
 
     await request(app.getHttpServer())
@@ -580,7 +580,7 @@ describe('Posts and Reviews (e2e)', () => {
           message: 'ok',
           data: {
             id: 'post-1',
-            status: 'PENDING',
+            status: 'APPROVED',
           },
         });
       });
@@ -632,7 +632,7 @@ describe('Posts and Reviews (e2e)', () => {
       .expect(({ body }) => {
         expect(body.data).toEqual({
           id: 'post-1',
-          status: 'PENDING',
+          status: 'APPROVED',
         });
       });
   });
@@ -663,7 +663,7 @@ describe('Posts and Reviews (e2e)', () => {
       .expect(({ body }) => {
         expect(body.data).toEqual({
           id: 'post-1',
-          status: 'PENDING',
+          status: 'APPROVED',
         });
       });
   });

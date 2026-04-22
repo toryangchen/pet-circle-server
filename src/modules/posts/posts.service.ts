@@ -119,7 +119,9 @@ export class PostsService {
             title: dto.title.trim(),
             content: dto.content.trim(),
             city: dto.city.trim(),
-            status: PostStatus.PENDING,
+            status: PostStatus.APPROVED,
+            publishedAt: new Date(),
+            approvedAt: new Date(),
             authorId: author.id,
           },
         });
