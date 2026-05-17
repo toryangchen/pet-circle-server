@@ -69,4 +69,28 @@ jobs:
           ssh -i ~/.ssh/deploy_key -p "${{ secrets.DEPLOY_PORT }}" \
             -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "cd '${DEPLOY_PATH}' && npm ci --omit=dev --no-audit --no-fund && node -e \"require('@nestjs/core'); require('@prisma/client')\" && sudo systemctl restart '${SERVICE_NAME}' && sudo systemctl is-active '${SERVICE_NAME}' && APP_PORT=\$(awk -F= '/^PORT=/{print \$2; exit}' .env 2>/dev/null || true) && curl -fsS \"http://127.0.0.1:\${APP_PORT:-3000}/api/health\""
+            "DEPLOY_PATH='${DEPLOY_PATH}' SERVICE_NAME='${SERVICE_NAME}' bash -se" <<'REMOTE'
+          set -euo pipefail
+
+          cd "${DEPLOY_PATH}"
+          npm ci --omit=dev --no-audit --no-fund
+          node -e "require('@nestjs/core'); require('@prisma/client')"
+
+          sudo systemctl restart "${SERVICE_NAME}"
+
+          APP_PORT="$(awk -F= '/^PORT=/{print $2; exit}' .env 2>/dev/null || true)"
+          APP_PORT="${APP_PORT:-3000}"
+          HEALTH_URL="http://127.0.0.1:${APP_PORT}/api/health"
+
+          for attempt in $(seq 1 30); do
+            if sudo systemctl is-active --quiet "${SERVICE_NAME}" && curl -fsS "${HEALTH_URL}"; then
+              exit 0
+            fi
+            echo "Waiting for ${SERVICE_NAME} to become ready (${attempt}/30)..."
+            sleep 2
+          done
+
+          sudo systemctl status "${SERVICE_NAME}" --no-pager -l || true
+          sudo journalctl -u "${SERVICE_NAME}" -n 120 --no-pager || true
+          exit 1
+          REMOTE
