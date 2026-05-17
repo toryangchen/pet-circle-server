@@ -1,4 +1,4 @@
-import { Prisma, ReviewAction, type User } from '@prisma/client';
+import { CommentStatus, Prisma, ReviewAction, type User } from '@prisma/client';
 
 export const postInclude = {
   author: true,
@@ -20,7 +20,11 @@ export const postInclude = {
   _count: {
     select: {
       likes: true,
-      comments: true,
+      comments: {
+        where: {
+          status: CommentStatus.NORMAL,
+        },
+      },
       favorites: true,
     },
   },
@@ -58,7 +62,8 @@ function getCoverImage(post: HydratedPost) {
 
 function getRejectReason(post: HydratedPost) {
   return (
-    post.reviewLogs.find((log) => log.action === ReviewAction.REJECT)?.reason ?? null
+    post.reviewLogs.find((log) => log.action === ReviewAction.REJECT)?.reason ??
+    null
   );
 }
 
@@ -89,9 +94,7 @@ export function toPostDetail(
   viewerState: ViewerState = { liked: false, favorited: false },
 ) {
   const canViewContact =
-    post.type === 'SERVICE' &&
-    !!post.contact &&
-    viewer?.id === post.authorId;
+    post.type === 'SERVICE' && !!post.contact && viewer?.id === post.authorId;
 
   return {
     id: post.id,

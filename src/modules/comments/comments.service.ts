@@ -13,7 +13,11 @@ import {
 import { CommentLevelExceededException } from '../../common/exceptions/comment-level-exceeded.exception';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
-import { commentInclude, toCommentTree, type HydratedComment } from './comments.views';
+import {
+  commentInclude,
+  toCommentTree,
+  type HydratedComment,
+} from './comments.views';
 import { CommentContentDto } from './dto/comment-content.dto';
 
 @Injectable()
@@ -73,7 +77,11 @@ export class CommentsService {
     };
   }
 
-  async replyComment(parentCommentId: string, user: User, dto: CommentContentDto) {
+  async replyComment(
+    parentCommentId: string,
+    user: User,
+    dto: CommentContentDto,
+  ) {
     const parent = await this.prismaService.comment.findUnique({
       where: { id: parentCommentId },
       include: commentInclude,
@@ -169,10 +177,30 @@ export class CommentsService {
       throw new NotFoundException('Comment not found.');
     }
 
+    await this.deleteRootRepliesIfNeeded(comment);
+
     return {
       id: commentId,
       status: CommentStatus.DELETED,
     };
+  }
+
+  private async deleteRootRepliesIfNeeded(
+    comment: Pick<HydratedComment, 'id' | 'parentId' | 'rootId'>,
+  ) {
+    if (comment.parentId || comment.rootId) {
+      return;
+    }
+
+    await this.prismaService.comment.updateMany({
+      where: {
+        rootId: comment.id,
+        status: CommentStatus.NORMAL,
+      },
+      data: {
+        status: CommentStatus.DELETED,
+      },
+    });
   }
 
   private async findApprovedPostOrThrow(postId: string) {

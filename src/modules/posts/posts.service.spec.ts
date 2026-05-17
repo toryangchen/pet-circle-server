@@ -1,7 +1,8 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { PostStatus, PostType } from '@prisma/client';
+import { CommentStatus, PostStatus, PostType } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { postInclude } from './post-views';
 import { PostsService } from './posts.service';
 
 describe('PostsService', () => {
@@ -37,6 +38,14 @@ describe('PostsService', () => {
     }).compile();
 
     service = module.get<PostsService>(PostsService);
+  });
+
+  it('counts only normal comments in post stats', () => {
+    expect(postInclude._count.select.comments).toEqual({
+      where: {
+        status: CommentStatus.NORMAL,
+      },
+    });
   });
 
   it('allows authors to offline approved service posts', async () => {

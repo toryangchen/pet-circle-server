@@ -1,13 +1,6 @@
-import {
-  ForbiddenException,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-  CommentStatus,
-  NotificationType,
-  PostStatus,
-} from '@prisma/client';
+import { CommentStatus, NotificationType, PostStatus } from '@prisma/client';
 import { CommentLevelExceededException } from '../../common/exceptions/comment-level-exceeded.exception';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -333,6 +326,8 @@ describe('CommentsService', () => {
   it('allows only the author to delete a normal comment', async () => {
     prismaService.comment.findUnique.mockResolvedValue({
       id: 'comment-1',
+      parentId: null,
+      rootId: null,
       userId: 'comment-author',
       status: CommentStatus.NORMAL,
     });
@@ -357,6 +352,51 @@ describe('CommentsService', () => {
     });
   });
 
+  it('deletes replies when deleting a root comment', async () => {
+    prismaService.comment.findUnique.mockResolvedValue({
+      id: 'comment-root',
+      parentId: null,
+      rootId: null,
+      userId: 'comment-author',
+      status: CommentStatus.NORMAL,
+    });
+    prismaService.comment.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockResolvedValueOnce({ count: 2 });
+
+    await expect(
+      service.deleteComment('comment-root', 'comment-author'),
+    ).resolves.toEqual({
+      id: 'comment-root',
+      status: CommentStatus.DELETED,
+    });
+
+    expect(prismaService.comment.updateMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        rootId: 'comment-root',
+        status: CommentStatus.NORMAL,
+      },
+      data: {
+        status: CommentStatus.DELETED,
+      },
+    });
+  });
+
+  it('does not delete sibling replies when deleting a reply', async () => {
+    prismaService.comment.findUnique.mockResolvedValue({
+      id: 'comment-reply',
+      parentId: 'comment-root',
+      rootId: 'comment-root',
+      userId: 'reply-author',
+      status: CommentStatus.NORMAL,
+    });
+    prismaService.comment.updateMany.mockResolvedValue({ count: 1 });
+
+    await service.deleteComment('comment-reply', 'reply-author');
+
+    expect(prismaService.comment.updateMany).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects deleting someone else’s comment', async () => {
     prismaService.comment.findUnique.mockResolvedValue({
       id: 'comment-1',
@@ -364,7 +404,9 @@ describe('CommentsService', () => {
       status: CommentStatus.NORMAL,
     });
 
-    await expect(service.deleteComment('comment-1', 'other-user')).rejects.toThrow(
+    await expect(
+      service.deleteComment('comment-1', 'other-user'),
+    ).rejects.toThrow(
       new ForbiddenException('Only the comment author can delete it.'),
     );
 
