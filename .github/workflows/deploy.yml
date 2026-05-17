@@ -43,26 +43,30 @@ jobs:
 
       - name: Ensure remote directories exist
         run: |
-          ssh -i ~/.ssh/deploy_key -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+          ssh -i ~/.ssh/deploy_key -p "${{ secrets.DEPLOY_PORT }}" \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
             "mkdir -p '${DEPLOY_PATH}/dist' '${DEPLOY_PATH}/prisma'"
 
       - name: Sync deployment files
         run: |
           rsync -az --delete \
-            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.DEPLOY_PORT }}" \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.DEPLOY_PORT }} -o ServerAliveInterval=30 -o ServerAliveCountMax=10" \
             dist/ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${DEPLOY_PATH}/dist/"
 
           rsync -az \
-            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.DEPLOY_PORT }}" \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.DEPLOY_PORT }} -o ServerAliveInterval=30 -o ServerAliveCountMax=10" \
             package.json package-lock.json \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${DEPLOY_PATH}/"
 
           rsync -az \
-            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.DEPLOY_PORT }}" \
+            -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.DEPLOY_PORT }} -o ServerAliveInterval=30 -o ServerAliveCountMax=10" \
             prisma/schema.prisma \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${DEPLOY_PATH}/prisma/schema.prisma"
 
       - name: Install production dependencies and restart service
         run: |
-          ssh -i ~/.ssh/deploy_key -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "cd '${DEPLOY_PATH}' && npm ci --omit=dev && sudo systemctl restart '${SERVICE_NAME}' && sudo systemctl is-active '${SERVICE_NAME}'"
+          ssh -i ~/.ssh/deploy_key -p "${{ secrets.DEPLOY_PORT }}" \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd '${DEPLOY_PATH}' && npm ci --omit=dev --no-audit --no-fund && node -e \"require('@nestjs/core'); require('@prisma/client')\" && sudo systemctl restart '${SERVICE_NAME}' && sudo systemctl is-active '${SERVICE_NAME}' && APP_PORT=\$(awk -F= '/^PORT=/{print \$2; exit}' .env 2>/dev/null || true) && curl -fsS \"http://127.0.0.1:\${APP_PORT:-3000}/api/health\""
