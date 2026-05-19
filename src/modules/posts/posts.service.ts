@@ -29,12 +29,14 @@ import {
 
 type DetailFieldName =
   | 'adoptionDetail'
+  | 'otherDetail'
   | 'secondHandDetail'
   | 'homeFeedingDetail'
   | 'boardingDetail';
 
 const detailFieldByCategory: Record<ServiceCategory, DetailFieldName> = {
   [ServiceCategory.ADOPTION]: 'adoptionDetail',
+  [ServiceCategory.OTHER]: 'otherDetail',
   [ServiceCategory.SECOND_HAND]: 'secondHandDetail',
   [ServiceCategory.HOME_FEEDING]: 'homeFeedingDetail',
   [ServiceCategory.BOARDING]: 'boardingDetail',
@@ -340,6 +342,7 @@ export class PostsService {
     const detailEntries = (
       [
         ['adoptionDetail', dto.adoptionDetail],
+        ['otherDetail', dto.otherDetail],
         ['secondHandDetail', dto.secondHandDetail],
         ['homeFeedingDetail', dto.homeFeedingDetail],
         ['boardingDetail', dto.boardingDetail],
@@ -395,6 +398,16 @@ export class PostsService {
         data: {
           postId,
           ...dto.secondHandDetail,
+        },
+      });
+      return;
+    }
+
+    if (detailField === 'otherDetail' && dto.otherDetail) {
+      await tx.otherDetail.create({
+        data: {
+          postId,
+          ...dto.otherDetail,
         },
       });
       return;

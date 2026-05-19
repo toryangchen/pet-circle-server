@@ -29,9 +29,16 @@ enum PostType {
 
 enum ServiceCategory {
   ADOPTION
-  SECOND_HAND
   HOME_FEEDING
   BOARDING
+  OTHER
+  SECOND_HAND
+}
+
+enum NeuteredStatus {
+  YES
+  NO
+  UNKNOWN
 }
 
 enum PostStatus {
@@ -156,6 +163,7 @@ model Post {
   assets            PostAsset[]
   contact           PostContact?
   adoptionDetail    AdoptionDetail?
+  otherDetail       OtherDetail?
   secondHandDetail  SecondHandDetail?
   homeFeedingDetail HomeFeedingDetail?
   boardingDetail    BoardingDetail?
@@ -200,11 +208,23 @@ model AdoptionDetail {
   petType              String
   age                  String
   gender               String
-  neutered             Boolean
+  neuteredStatus       NeuteredStatus
   adoptionRequirements String
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   post                 Post     @relation(fields: [postId], references: [id])
+}
+
+model OtherDetail {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  postId      String   @unique @db.ObjectId
+  infoType    String
+  area        String
+  budget      String
+  description String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  post        Post     @relation(fields: [postId], references: [id])
 }
 
 model SecondHandDetail {

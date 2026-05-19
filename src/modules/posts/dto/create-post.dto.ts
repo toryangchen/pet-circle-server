@@ -3,7 +3,6 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
-  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsOptional,
@@ -13,7 +12,7 @@ import {
   Matches,
   ValidateNested,
 } from 'class-validator';
-import { PostType, ServiceCategory } from '@prisma/client';
+import { NeuteredStatus, PostType, ServiceCategory } from '@prisma/client';
 
 class PostContactDto {
   @IsOptional()
@@ -47,8 +46,8 @@ class AdoptionDetailDto {
   @MaxLength(20)
   gender!: string;
 
-  @IsBoolean()
-  neutered!: boolean;
+  @IsEnum(NeuteredStatus)
+  neuteredStatus!: NeuteredStatus;
 
   @IsString()
   @IsNotEmpty()
@@ -71,6 +70,28 @@ class SecondHandDetailDto {
   @IsNotEmpty()
   @MaxLength(30)
   price!: string;
+}
+
+class OtherDetailDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  infoType!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  area!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(30)
+  budget!: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  description!: string;
 }
 
 class HomeFeedingDetailDto {
@@ -151,6 +172,11 @@ export class CreatePostDto {
   @ValidateNested()
   @Type(() => SecondHandDetailDto)
   secondHandDetail?: SecondHandDetailDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OtherDetailDto)
+  otherDetail?: OtherDetailDto;
 
   @IsOptional()
   @ValidateNested()

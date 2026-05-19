@@ -7,6 +7,7 @@ import {
   PostType,
   ReviewAction,
   ServiceCategory,
+  NeuteredStatus,
   UserStatus,
 } from '@prisma/client';
 import request from 'supertest';
@@ -95,7 +96,7 @@ type TestAdoptionDetail = {
   petType: string;
   age: string;
   gender: string;
-  neutered: boolean;
+  neuteredStatus: NeuteredStatus;
   adoptionRequirements: string;
   createdAt: Date;
   updatedAt: Date;
@@ -107,6 +108,17 @@ type TestSecondHandDetail = {
   itemType: string;
   itemCondition: string;
   price: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type TestOtherDetail = {
+  id: string;
+  postId: string;
+  infoType: string;
+  area: string;
+  budget: string;
+  description: string;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -159,6 +171,7 @@ describe('Posts and Reviews (e2e)', () => {
   let postContacts: TestPostContact[];
   let adoptionDetails: TestAdoptionDetail[];
   let secondHandDetails: TestSecondHandDetail[];
+  let otherDetails: TestOtherDetail[];
   let homeFeedingDetails: TestHomeFeedingDetail[];
   let boardingDetails: TestBoardingDetail[];
   let reviewLogs: TestReviewLog[];
@@ -400,6 +413,24 @@ describe('Posts and Reviews (e2e)', () => {
         },
       ),
     },
+    otherDetail: {
+      create: jest.fn(
+        async ({
+          data,
+        }: {
+          data: Omit<TestOtherDetail, 'id' | 'createdAt' | 'updatedAt'>;
+        }) => {
+          const detail: TestOtherDetail = {
+            ...data,
+            id: `other-${otherDetails.length + 1}`,
+            createdAt: new Date('2026-03-31T10:00:00.000Z'),
+            updatedAt: new Date('2026-03-31T10:00:00.000Z'),
+          };
+          otherDetails.push(detail);
+          return detail;
+        },
+      ),
+    },
     homeFeedingDetail: {
       create: jest.fn(
         async ({
@@ -513,6 +544,7 @@ describe('Posts and Reviews (e2e)', () => {
     postContacts = [];
     adoptionDetails = [];
     secondHandDetails = [];
+    otherDetails = [];
     homeFeedingDetails = [];
     boardingDetails = [];
     reviewLogs = [];
@@ -532,6 +564,7 @@ describe('Posts and Reviews (e2e)', () => {
     prismaService.postContact.create.mockClear();
     prismaService.adoptionDetail.create.mockClear();
     prismaService.secondHandDetail.create.mockClear();
+    prismaService.otherDetail.create.mockClear();
     prismaService.homeFeedingDetail.create.mockClear();
     prismaService.boardingDetail.create.mockClear();
     prismaService.reviewLog.create.mockClear();
@@ -666,6 +699,64 @@ describe('Posts and Reviews (e2e)', () => {
           status: 'APPROVED',
         });
       });
+  });
+
+  it('publishes adoption with unknown neutered status and other service detail', async () => {
+    const author = seedUser({ phoneAuthorized: true });
+
+    await request(app.getHttpServer())
+      .post('/api/posts')
+      .set('Authorization', bearer(miniappTokenService.sign(author.id)))
+      .send({
+        type: 'SERVICE',
+        serviceCategory: 'ADOPTION',
+        title: '小猫找领养',
+        content: '亲人，会用猫砂',
+        city: '西安',
+        images: ['https://example.com/adoption-unknown.jpg'],
+        adoptionDetail: {
+          petType: '猫咪',
+          age: '幼年',
+          gender: '女孩',
+          neuteredStatus: 'UNKNOWN',
+          adoptionRequirements: '希望有稳定住所',
+        },
+      })
+      .expect(201);
+
+    expect(adoptionDetails[0]).toMatchObject({
+      petType: '猫咪',
+      age: '幼年',
+      gender: '女孩',
+      neuteredStatus: NeuteredStatus.UNKNOWN,
+      adoptionRequirements: '希望有稳定住所',
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/posts')
+      .set('Authorization', bearer(miniappTokenService.sign(author.id)))
+      .send({
+        type: 'SERVICE',
+        serviceCategory: 'OTHER',
+        title: '周末宠物活动搭子',
+        content: '想找附近养狗朋友一起遛弯',
+        city: '西安',
+        images: ['https://example.com/other-activity.jpg'],
+        otherDetail: {
+          infoType: '组局',
+          area: '雁塔区',
+          budget: '免费',
+          description: '中午前后都可以',
+        },
+      })
+      .expect(201);
+
+    expect(otherDetails[0]).toMatchObject({
+      infoType: '组局',
+      area: '雁塔区',
+      budget: '免费',
+      description: '中午前后都可以',
+    });
   });
 
   it('rejects mismatched service category and detail payloads', async () => {
@@ -1282,7 +1373,7 @@ describe('Posts and Reviews (e2e)', () => {
       petType: '猫',
       age: '6个月',
       gender: '母',
-      neutered: false,
+      neuteredStatus: NeuteredStatus.NO,
       adoptionRequirements: '需接受回访',
       createdAt: new Date('2026-03-31T08:35:00.000Z'),
       updatedAt: new Date('2026-03-31T08:35:00.000Z'),
@@ -1356,6 +1447,8 @@ describe('Posts and Reviews (e2e)', () => {
         adoptionDetails.find((detail) => detail.postId === post.id) ?? null,
       secondHandDetail:
         secondHandDetails.find((detail) => detail.postId === post.id) ?? null,
+      otherDetail:
+        otherDetails.find((detail) => detail.postId === post.id) ?? null,
       homeFeedingDetail:
         homeFeedingDetails.find((detail) => detail.postId === post.id) ?? null,
       boardingDetail:
