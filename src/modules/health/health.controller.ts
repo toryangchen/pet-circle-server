@@ -1,4 +1,4 @@
-import { Controller, HttpCode, Post } from '@nestjs/common';
+import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -9,8 +9,7 @@ export class HealthController {
     private readonly prismaService: PrismaService,
   ) {}
 
-  @Post()
-  @HttpCode(200)
+  @Get()
   async check() {
     await this.prismaService.$runCommandRaw({ ping: 1 });
 
