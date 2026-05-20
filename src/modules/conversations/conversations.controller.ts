@@ -1,6 +1,5 @@
 import {
   Controller,
-  Get,
   HttpCode,
   Param,
   Post,
@@ -17,7 +16,8 @@ import { ConversationsService } from './conversations.service';
 export class ConversationsController {
   constructor(private readonly conversationsService: ConversationsService) {}
 
-  @Get(':id')
+  @Post(':id')
+  @HttpCode(200)
   async getConversation(
     @Param('id') conversationId: string,
     @CurrentMiniappUser() user: AuthenticatedMiniappUser,

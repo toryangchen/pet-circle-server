@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Get,
   HttpCode,
   Param,
   Post,
@@ -21,12 +20,14 @@ import { ReviewsService } from './reviews.service';
 export class ReviewsController {
   constructor(private readonly reviewsService: ReviewsService) {}
 
-  @Get('reviews/pending')
+  @Post('reviews/pending')
+  @HttpCode(200)
   async getPendingReviews(@Query() dto: AdminReviewQueryDto) {
     return ok(await this.reviewsService.getPendingReviews(dto));
   }
 
-  @Get('reviews/:postId')
+  @Post('reviews/:postId')
+  @HttpCode(200)
   async getReviewDetail(@Param('postId') postId: string) {
     return ok(await this.reviewsService.getReviewDetail(postId));
   }
@@ -60,7 +61,8 @@ export class ReviewsController {
     return ok(await this.reviewsService.offline(postId, adminUser.id, dto.reason));
   }
 
-  @Get('posts/online')
+  @Post('posts/online')
+  @HttpCode(200)
   async getOnlinePosts(@Query() dto: AdminReviewQueryDto) {
     return ok(await this.reviewsService.getOnlinePosts(dto));
   }

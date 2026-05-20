@@ -1,8 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
-  Get,
   HttpCode,
   Param,
   Post,
@@ -19,8 +17,9 @@ import { CommentsService } from './comments.service';
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
-  @Get('posts/:id/comments')
+  @Post('posts/:id/comments/list')
   @UseGuards(MiniappAuthGuard)
+  @HttpCode(200)
   async listComments(
     @Param('id') postId: string,
     @CurrentMiniappUser() _user: AuthenticatedMiniappUser,
@@ -48,7 +47,7 @@ export class CommentsController {
     return ok(await this.commentsService.replyComment(commentId, user, dto));
   }
 
-  @Delete('comments/:id')
+  @Post('comments/:id/delete')
   @HttpCode(200)
   @UseGuards(MiniappAuthGuard)
   async deleteComment(

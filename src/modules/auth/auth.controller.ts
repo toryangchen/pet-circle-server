@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Get,
   HttpCode,
   Post,
   UseGuards,
@@ -35,8 +34,9 @@ export class AuthController {
     return ok(await this.authService.bindPhone(user.id, dto.code));
   }
 
-  @Get('me')
+  @Post('me')
   @UseGuards(MiniappAuthGuard)
+  @HttpCode(200)
   async me(@CurrentMiniappUser() user: AuthenticatedMiniappUser) {
     return ok(this.authService.getCurrentMiniappUserSummary(user));
   }

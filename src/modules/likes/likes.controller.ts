@@ -1,4 +1,4 @@
-import { Controller, HttpCode, Param, Delete, Post, UseGuards } from '@nestjs/common';
+import { Controller, HttpCode, Param, Post, UseGuards } from '@nestjs/common';
 import { ok } from '../../common/response/api-response';
 import { CurrentMiniappUser } from '../auth/current-miniapp-user.decorator';
 import { MiniappAuthGuard } from '../auth/miniapp-auth.guard';
@@ -19,7 +19,7 @@ export class LikesController {
     return ok(await this.likesService.likePost(postId, user));
   }
 
-  @Delete('posts/:id/like')
+  @Post('posts/:id/like/delete')
   @HttpCode(200)
   async unlikePost(
     @Param('id') postId: string,

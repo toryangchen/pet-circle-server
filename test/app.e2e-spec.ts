@@ -43,9 +43,9 @@ describe('HealthController (e2e)', () => {
     }
   });
 
-  it('/api/health (GET)', () => {
+  it('/api/health (POST)', () => {
     return request(app.getHttpServer())
-      .get('/api/health')
+      .post('/api/health')
       .expect(200)
       .expect(({ body }) => {
         expect(runCommandRaw).toHaveBeenCalledWith({ ping: 1 });

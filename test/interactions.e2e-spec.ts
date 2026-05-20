@@ -527,14 +527,14 @@ describe('Interactions (e2e)', () => {
     });
 
     await request(app.getHttpServer())
-      .get(`/api/posts/${post.id}/comments`)
+      .post(`/api/posts/${post.id}/comments/list`)
       .expect(401)
       .expect(({ body }) => {
         expect(body.code).toBe(40002);
       });
 
     await request(app.getHttpServer())
-      .get(`/api/posts/${post.id}/comments`)
+      .post(`/api/posts/${post.id}/comments/list`)
       .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -553,7 +553,7 @@ describe('Interactions (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get(`/api/posts/${post.id}`)
+      .post(`/api/posts/${post.id}`)
       .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -570,7 +570,7 @@ describe('Interactions (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get('/api/favorites/my')
+      .post('/api/favorites/my')
       .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -584,7 +584,7 @@ describe('Interactions (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get('/api/notifications')
+      .post('/api/notifications')
       .set('Authorization', bearer(miniappTokenService.sign(author.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -597,7 +597,7 @@ describe('Interactions (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get('/api/notifications')
+      .post('/api/notifications')
       .set('Authorization', bearer(miniappTokenService.sign(commenter.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -655,7 +655,7 @@ describe('Interactions (e2e)', () => {
     });
 
     await request(app.getHttpServer())
-      .get(`/api/posts/${pendingPost.id}/comments`)
+      .post(`/api/posts/${pendingPost.id}/comments/list`)
       .set('Authorization', bearer(miniappTokenService.sign(commenter.id)))
       .expect(404)
       .expect(({ body }) => {
@@ -692,7 +692,7 @@ describe('Interactions (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .delete('/api/comments/comment-1')
+      .post('/api/comments/comment-1/delete')
       .set('Authorization', bearer(miniappTokenService.sign(commenter.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -700,7 +700,7 @@ describe('Interactions (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get(`/api/posts/${post.id}/comments`)
+      .post(`/api/posts/${post.id}/comments/list`)
       .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -724,7 +724,7 @@ describe('Interactions (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .delete(`/api/posts/${post.id}/like`)
+      .post(`/api/posts/${post.id}/like/delete`)
       .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -732,7 +732,7 @@ describe('Interactions (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .delete(`/api/posts/${post.id}/like`)
+      .post(`/api/posts/${post.id}/like/delete`)
       .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -756,7 +756,7 @@ describe('Interactions (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .delete(`/api/posts/${post.id}/favorite`)
+      .post(`/api/posts/${post.id}/favorite/delete`)
       .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -764,7 +764,7 @@ describe('Interactions (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .delete(`/api/posts/${post.id}/favorite`)
+      .post(`/api/posts/${post.id}/favorite/delete`)
       .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -792,7 +792,7 @@ describe('Interactions (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .delete('/api/comments/comment-1')
+      .post('/api/comments/comment-1/delete')
       .set('Authorization', bearer(miniappTokenService.sign(otherUser.id)))
       .expect(403)
       .expect(({ body }) => {

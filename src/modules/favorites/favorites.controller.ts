@@ -1,7 +1,5 @@
 import {
   Controller,
-  Delete,
-  Get,
   HttpCode,
   Param,
   Post,
@@ -29,7 +27,7 @@ export class FavoritesController {
     return ok(await this.favoritesService.favoritePost(postId, user));
   }
 
-  @Delete('posts/:id/favorite')
+  @Post('posts/:id/favorite/delete')
   @HttpCode(200)
   async unfavoritePost(
     @Param('id') postId: string,
@@ -38,7 +36,8 @@ export class FavoritesController {
     return ok(await this.favoritesService.unfavoritePost(postId, user));
   }
 
-  @Get('favorites/my')
+  @Post('favorites/my')
+  @HttpCode(200)
   async listMyFavorites(
     @CurrentMiniappUser() user: AuthenticatedMiniappUser,
     @Query() dto: FavoritesQueryDto,

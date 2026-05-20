@@ -416,7 +416,7 @@ describe('Contact requests and notifications (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get('/api/notifications')
+      .post('/api/notifications')
       .set('Authorization', bearer(miniappTokenService.sign(author.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -448,7 +448,7 @@ describe('Contact requests and notifications (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .get('/api/conversations/conversation-1')
+      .post('/api/conversations/conversation-1')
       .set('Authorization', bearer(miniappTokenService.sign(initiator.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -500,7 +500,7 @@ describe('Contact requests and notifications (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get('/api/conversations/conversation-1')
+      .post('/api/conversations/conversation-1')
       .set('Authorization', bearer(miniappTokenService.sign(author.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -517,7 +517,7 @@ describe('Contact requests and notifications (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get('/api/notifications')
+      .post('/api/notifications')
       .set('Authorization', bearer(miniappTokenService.sign(initiator.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -548,7 +548,7 @@ describe('Contact requests and notifications (e2e)', () => {
       .expect(201);
 
     await request(app.getHttpServer())
-      .get('/api/conversations/conversation-1')
+      .post('/api/conversations/conversation-1')
       .set('Authorization', bearer(miniappTokenService.sign(outsider.id)))
       .expect(404)
       .expect(({ body }) => {

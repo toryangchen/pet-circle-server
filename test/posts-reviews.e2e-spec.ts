@@ -810,7 +810,7 @@ describe('Posts and Reviews (e2e)', () => {
     seedFavorite(approvedPost.id, viewer.id);
 
     await request(app.getHttpServer())
-      .get('/api/posts/feed')
+      .post('/api/posts/feed')
       .query({
         channel: 'SERVICE',
         serviceCategory: 'BOARDING',
@@ -823,7 +823,7 @@ describe('Posts and Reviews (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get('/api/posts/feed')
+      .post('/api/posts/feed')
       .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .query({
         channel: 'SERVICE',
@@ -863,14 +863,14 @@ describe('Posts and Reviews (e2e)', () => {
     seedContact(pendingPost.id);
 
     await request(app.getHttpServer())
-      .get(`/api/posts/${pendingPost.id}`)
+      .post(`/api/posts/${pendingPost.id}`)
       .expect(401)
       .expect(({ body }) => {
         expect(body.code).toBe(40002);
       });
 
     await request(app.getHttpServer())
-      .get(`/api/posts/${pendingPost.id}`)
+      .post(`/api/posts/${pendingPost.id}`)
       .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .expect(404)
       .expect(({ body }) => {
@@ -891,7 +891,7 @@ describe('Posts and Reviews (e2e)', () => {
     seedReviewLog(rejectedPost.id, ReviewAction.REJECT, '标题与内容不符');
 
     await request(app.getHttpServer())
-      .get('/api/posts/my')
+      .post('/api/posts/my')
       .set('Authorization', bearer(miniappTokenService.sign(author.id)))
       .query({ page: 1, pageSize: 10 })
       .expect(200)
@@ -919,7 +919,7 @@ describe('Posts and Reviews (e2e)', () => {
     });
 
     await request(app.getHttpServer())
-      .patch(`/api/posts/${servicePost.id}/offline`)
+      .post(`/api/posts/${servicePost.id}/offline`)
       .set('Authorization', bearer(miniappTokenService.sign(author.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -960,7 +960,7 @@ describe('Posts and Reviews (e2e)', () => {
 
     for (const post of [pendingServicePost, rejectedServicePost, petSocialPost]) {
       await request(app.getHttpServer())
-        .patch(`/api/posts/${post.id}/offline`)
+        .post(`/api/posts/${post.id}/offline`)
         .set('Authorization', bearer(miniappTokenService.sign(author.id)))
         .expect(409)
         .expect(({ body }) => {
@@ -991,7 +991,7 @@ describe('Posts and Reviews (e2e)', () => {
     });
 
     await request(app.getHttpServer())
-      .patch(`/api/posts/${petSocialPost.id}/complete`)
+      .post(`/api/posts/${petSocialPost.id}/complete`)
       .set('Authorization', bearer(miniappTokenService.sign(author.id)))
       .expect(409)
       .expect(({ body }) => {
@@ -999,7 +999,7 @@ describe('Posts and Reviews (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .patch(`/api/posts/${servicePost.id}/complete`)
+      .post(`/api/posts/${servicePost.id}/complete`)
       .set('Authorization', bearer(miniappTokenService.sign(author.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -1030,7 +1030,7 @@ describe('Posts and Reviews (e2e)', () => {
     seedContact(pendingPost.id);
 
     await request(app.getHttpServer())
-      .get('/api/admin/reviews/pending')
+      .post('/api/admin/reviews/pending')
       .set('Authorization', bearer(adminTokenService.sign(admin.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -1047,7 +1047,7 @@ describe('Posts and Reviews (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get(`/api/admin/reviews/${pendingPost.id}`)
+      .post(`/api/admin/reviews/${pendingPost.id}`)
       .set('Authorization', bearer(adminTokenService.sign(admin.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -1088,7 +1088,7 @@ describe('Posts and Reviews (e2e)', () => {
     seedContact(approvedPost.id);
 
     await request(app.getHttpServer())
-      .get(`/api/posts/${approvedPost.id}`)
+      .post(`/api/posts/${approvedPost.id}`)
       .set('Authorization', bearer(miniappTokenService.sign(activeViewer.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -1096,7 +1096,7 @@ describe('Posts and Reviews (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get(`/api/posts/${approvedPost.id}`)
+      .post(`/api/posts/${approvedPost.id}`)
       .set('Authorization', bearer(miniappTokenService.sign(inactiveViewer.id)))
       .expect(401)
       .expect(({ body }) => {
@@ -1104,7 +1104,7 @@ describe('Posts and Reviews (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get(`/api/posts/${approvedPost.id}`)
+      .post(`/api/posts/${approvedPost.id}`)
       .set('Authorization', bearer(miniappTokenService.sign(author.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -1187,7 +1187,7 @@ describe('Posts and Reviews (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get('/api/admin/posts/online')
+      .post('/api/admin/posts/online')
       .set('Authorization', bearer(adminTokenService.sign(admin.id)))
       .expect(200)
       .expect(({ body }) => {
@@ -1239,7 +1239,7 @@ describe('Posts and Reviews (e2e)', () => {
     });
 
     await request(app.getHttpServer())
-      .get('/api/admin/reviews/pending')
+      .post('/api/admin/reviews/pending')
       .set('Authorization', bearer(adminTokenService.sign(admin.id)))
       .query({
         type: 'SERVICE',
@@ -1257,7 +1257,7 @@ describe('Posts and Reviews (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get('/api/admin/posts/online')
+      .post('/api/admin/posts/online')
       .set('Authorization', bearer(adminTokenService.sign(admin.id)))
       .query({
         type: 'SERVICE',

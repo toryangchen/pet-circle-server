@@ -488,7 +488,7 @@ describe('AuthController (e2e)', () => {
 
   it('rejects invalid or missing bearer tokens on current-user access with the api error envelope', async () => {
     await request(app.getHttpServer())
-      .get('/api/auth/me')
+      .post('/api/auth/me')
       .expect(401)
       .expect(({ body }) => {
         expect(body).toEqual({
@@ -499,7 +499,7 @@ describe('AuthController (e2e)', () => {
       });
 
     await request(app.getHttpServer())
-      .get('/api/auth/me')
+      .post('/api/auth/me')
       .set('Authorization', `Bearer ${createMalformedSignedToken()}`)
       .expect(401)
       .expect(({ body }) => {
@@ -704,7 +704,7 @@ describe('AuthController (e2e)', () => {
       .expect(200);
 
     await request(app.getHttpServer())
-      .get('/api/auth/me')
+      .post('/api/auth/me')
       .set('Authorization', `Bearer ${loginResponse.body.data.token}`)
       .expect(200)
       .expect(({ body }) => {
@@ -840,7 +840,7 @@ describe('AuthController (e2e)', () => {
       .expect(200);
 
     await request(app.getHttpServer())
-      .patch('/api/users/me/profile')
+      .post('/api/users/me/profile')
       .set('Authorization', `Bearer ${loginResponse.body.data.token}`)
       .send({
         nickname: '新昵称',
@@ -920,7 +920,7 @@ describe('AuthController (e2e)', () => {
       .expect(200);
 
     await request(app.getHttpServer())
-      .patch('/api/users/me/profile')
+      .post('/api/users/me/profile')
       .set('Authorization', `Bearer ${loginResponse.body.data.token}`)
       .send({
         bgType: 'main-bg-02',
@@ -991,7 +991,7 @@ describe('AuthController (e2e)', () => {
       .expect(200);
 
     await request(app.getHttpServer())
-      .patch('/api/users/me/profile')
+      .post('/api/users/me/profile')
       .set('Authorization', `Bearer ${loginResponse.body.data.token}`)
       .send({
         nickname: '新昵称',
@@ -1011,7 +1011,7 @@ describe('AuthController (e2e)', () => {
 
   it('requires miniapp authentication before updating the current user profile', async () => {
     await request(app.getHttpServer())
-      .patch('/api/users/me/profile')
+      .post('/api/users/me/profile')
       .send({
         nickname: '未登录用户',
       })

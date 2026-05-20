@@ -1,10 +1,8 @@
 import {
   Controller,
-  Get,
   HttpCode,
   HttpStatus,
   Param,
-  Patch,
   Post,
   Body,
   Query,
@@ -30,7 +28,8 @@ export class PostsController {
     private readonly conversationsService: ConversationsService,
   ) {}
 
-  @Get('feed')
+  @Post('feed')
+  @HttpCode(200)
   async getFeed(
     @Query() dto: FeedQueryDto,
     @CurrentMiniappUser() user: AuthenticatedMiniappUser,
@@ -38,7 +37,8 @@ export class PostsController {
     return ok(await this.postsService.getFeed(dto, user));
   }
 
-  @Get('my')
+  @Post('my')
+  @HttpCode(200)
   async getMyPosts(
     @CurrentMiniappUser() user: AuthenticatedMiniappUser,
     @Query() dto: MyPostsQueryDto,
@@ -46,7 +46,8 @@ export class PostsController {
     return ok(await this.postsService.getMyPosts(user.id, dto));
   }
 
-  @Get(':id')
+  @Post(':id')
+  @HttpCode(200)
   async getDetail(
     @Param('id') postId: string,
     @CurrentMiniappUser() user: AuthenticatedMiniappUser,
@@ -78,7 +79,8 @@ export class PostsController {
     });
   }
 
-  @Patch(':id/offline')
+  @Post(':id/offline')
+  @HttpCode(200)
   async offlinePost(
     @Param('id') postId: string,
     @CurrentMiniappUser() user: AuthenticatedMiniappUser,
@@ -86,7 +88,8 @@ export class PostsController {
     return ok(await this.postsService.offlinePost(postId, user.id));
   }
 
-  @Patch(':id/complete')
+  @Post(':id/complete')
+  @HttpCode(200)
   async completePost(
     @Param('id') postId: string,
     @CurrentMiniappUser() user: AuthenticatedMiniappUser,

@@ -1,9 +1,9 @@
 import {
   Body,
   Controller,
-  Get,
+  HttpCode,
   Param,
-  Patch,
+  Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -22,8 +22,9 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Patch('users/me/profile')
+  @Post('users/me/profile')
   @UseGuards(MiniappAuthGuard)
+  @HttpCode(200)
   async updateMyProfile(
     @CurrentMiniappUser() user: AuthenticatedMiniappUser,
     @Body() dto: UpdateMyProfileDto,
@@ -31,8 +32,9 @@ export class UsersController {
     return ok(await this.usersService.updateMyProfile(user.id, dto));
   }
 
-  @Get('admin/users')
+  @Post('admin/users')
   @UseGuards(AdminAuthGuard)
+  @HttpCode(200)
   async listAdminUsers(
     @CurrentAdminUser() _adminUser: AuthenticatedAdminUser,
     @Query() dto: AdminUsersQueryDto,
@@ -40,8 +42,9 @@ export class UsersController {
     return ok(await this.usersService.listAdminUsers(dto));
   }
 
-  @Get('admin/users/:id')
+  @Post('admin/users/:id')
   @UseGuards(AdminAuthGuard)
+  @HttpCode(200)
   async getAdminUserDetail(
     @CurrentAdminUser() _adminUser: AuthenticatedAdminUser,
     @Param('id') userId: string,

@@ -271,7 +271,7 @@ describe('Admin Users (e2e)', () => {
     const token = adminTokenService.sign('admin-1');
 
     await request(app.getHttpServer())
-      .get('/api/admin/users?page=1&pageSize=10&keyword=糯米')
+      .post('/api/admin/users?page=1&pageSize=10&keyword=糯米')
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
       .expect(({ body }) => {
@@ -299,7 +299,7 @@ describe('Admin Users (e2e)', () => {
     const token = adminTokenService.sign('admin-1');
 
     await request(app.getHttpServer())
-      .get('/api/admin/users/user-1')
+      .post('/api/admin/users/user-1')
       .set('Authorization', `Bearer ${token}`)
       .expect(200)
       .expect(({ body }) => {

@@ -1,6 +1,5 @@
 import {
   Controller,
-  Get,
   HttpCode,
   Param,
   Post,
@@ -19,7 +18,8 @@ import { NotificationsService } from './notifications.service';
 export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
-  @Get()
+  @Post()
+  @HttpCode(200)
   async list(
     @CurrentMiniappUser() user: AuthenticatedMiniappUser,
     @Query() dto: ListNotificationsQueryDto,
