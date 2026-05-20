@@ -524,10 +524,18 @@ describe('Interactions (e2e)', () => {
       .expect(200)
       .expect(({ body }) => {
         expect(body.data).toEqual({ id: post.id, favorited: true });
+    });
+
+    await request(app.getHttpServer())
+      .get(`/api/posts/${post.id}/comments`)
+      .expect(401)
+      .expect(({ body }) => {
+        expect(body.code).toBe(40002);
       });
 
     await request(app.getHttpServer())
       .get(`/api/posts/${post.id}/comments`)
+      .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .expect(200)
       .expect(({ body }) => {
         expect(body.data.items).toEqual([
@@ -648,6 +656,7 @@ describe('Interactions (e2e)', () => {
 
     await request(app.getHttpServer())
       .get(`/api/posts/${pendingPost.id}/comments`)
+      .set('Authorization', bearer(miniappTokenService.sign(commenter.id)))
       .expect(404)
       .expect(({ body }) => {
         expect(body.code).toBe(40004);
@@ -692,6 +701,7 @@ describe('Interactions (e2e)', () => {
 
     await request(app.getHttpServer())
       .get(`/api/posts/${post.id}/comments`)
+      .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .expect(200)
       .expect(({ body }) => {
         expect(body.data.items).toEqual([]);

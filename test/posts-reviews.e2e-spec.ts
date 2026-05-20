@@ -811,6 +811,19 @@ describe('Posts and Reviews (e2e)', () => {
 
     await request(app.getHttpServer())
       .get('/api/posts/feed')
+      .query({
+        channel: 'SERVICE',
+        serviceCategory: 'BOARDING',
+        page: 1,
+        pageSize: 10,
+      })
+      .expect(401)
+      .expect(({ body }) => {
+        expect(body.code).toBe(40002);
+      });
+
+    await request(app.getHttpServer())
+      .get('/api/posts/feed')
       .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
       .query({
         channel: 'SERVICE',
@@ -848,6 +861,13 @@ describe('Posts and Reviews (e2e)', () => {
     seedAsset(pendingPost.id, 'https://example.com/pending-adoption.jpg');
     seedAdoptionDetail(pendingPost.id);
     seedContact(pendingPost.id);
+
+    await request(app.getHttpServer())
+      .get(`/api/posts/${pendingPost.id}`)
+      .expect(401)
+      .expect(({ body }) => {
+        expect(body.code).toBe(40002);
+      });
 
     await request(app.getHttpServer())
       .get(`/api/posts/${pendingPost.id}`)
@@ -1078,9 +1098,9 @@ describe('Posts and Reviews (e2e)', () => {
     await request(app.getHttpServer())
       .get(`/api/posts/${approvedPost.id}`)
       .set('Authorization', bearer(miniappTokenService.sign(inactiveViewer.id)))
-      .expect(200)
+      .expect(401)
       .expect(({ body }) => {
-        expect(body.data.contact).toEqual({ visible: false });
+        expect(body.code).toBe(40002);
       });
 
     await request(app.getHttpServer())
