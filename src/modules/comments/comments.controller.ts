@@ -20,7 +20,11 @@ export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
   @Get('posts/:id/comments')
-  async listComments(@Param('id') postId: string) {
+  @UseGuards(MiniappAuthGuard)
+  async listComments(
+    @Param('id') postId: string,
+    @CurrentMiniappUser() _user: AuthenticatedMiniappUser,
+  ) {
     return ok(await this.commentsService.listComments(postId));
   }
 
