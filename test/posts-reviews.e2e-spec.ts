@@ -96,7 +96,7 @@ type TestAdoptionDetail = {
   petType: string;
   age: string;
   gender: string;
-  neuteredStatus: NeuteredStatus;
+  neuteredStatus: NeuteredStatus | null;
   adoptionRequirements: string;
   createdAt: Date;
   updatedAt: Date;

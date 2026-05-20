@@ -208,7 +208,7 @@ model AdoptionDetail {
   petType              String
   age                  String
   gender               String
-  neuteredStatus       NeuteredStatus
+  neuteredStatus       NeuteredStatus?
   adoptionRequirements String
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
