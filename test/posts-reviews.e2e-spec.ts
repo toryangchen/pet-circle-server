@@ -159,6 +159,15 @@ type TestFavorite = {
   createdAt: Date;
 };
 
+type TestPostView = {
+  id: string;
+  postId: string;
+  userId: string;
+  viewedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 describe('Posts and Reviews (e2e)', () => {
   let app: INestApplication<App>;
   let miniappTokenService: MiniappTokenService;
@@ -176,6 +185,7 @@ describe('Posts and Reviews (e2e)', () => {
   let boardingDetails: TestBoardingDetail[];
   let reviewLogs: TestReviewLog[];
   let favorites: TestFavorite[];
+  let postViews: TestPostView[];
 
   const prismaService = {
     onModuleInit: jest.fn(),
@@ -218,7 +228,8 @@ describe('Posts and Reviews (e2e)', () => {
 
           if (where.username) {
             return (
-              adminUsers.find((user) => user.username === where.username) ?? null
+              adminUsers.find((user) => user.username === where.username) ??
+              null
             );
           }
 
@@ -228,16 +239,13 @@ describe('Posts and Reviews (e2e)', () => {
     },
     post: {
       create: jest.fn(
-        async ({
-          data,
-        }: {
-          data: Partial<TestPost>;
-        }): Promise<TestPost> => {
+        async ({ data }: { data: Partial<TestPost> }): Promise<TestPost> => {
           const createdAt = new Date('2026-03-31T10:00:00.000Z');
           const post: TestPost = {
             id: `post-${posts.length + 1}`,
             type: data.type as PostType,
-            serviceCategory: (data.serviceCategory as ServiceCategory | null) ?? null,
+            serviceCategory:
+              (data.serviceCategory as ServiceCategory | null) ?? null,
             title: data.title as string,
             content: data.content as string,
             city: data.city as string,
@@ -278,7 +286,10 @@ describe('Posts and Reviews (e2e)', () => {
           take?: number;
         }): Promise<Record<string, unknown>[]> => {
           const matched = filterPosts(where)
-            .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime())
+            .sort(
+              (left, right) =>
+                right.createdAt.getTime() - left.createdAt.getTime(),
+            )
             .slice(skip ?? 0, (skip ?? 0) + (take ?? Number.MAX_SAFE_INTEGER));
 
           return matched.map((post) => hydratePost(post));
@@ -472,7 +483,10 @@ describe('Posts and Reviews (e2e)', () => {
         async ({
           data,
         }: {
-          data: Pick<TestReviewLog, 'postId' | 'reviewerId' | 'action' | 'reason'>;
+          data: Pick<
+            TestReviewLog,
+            'postId' | 'reviewerId' | 'action' | 'reason'
+          >;
         }) => {
           const log: TestReviewLog = {
             id: `review-log-${reviewLogs.length + 1}`,
@@ -534,6 +548,84 @@ describe('Posts and Reviews (e2e)', () => {
           ) ?? null,
       ),
     },
+    postView: {
+      findMany: jest.fn(
+        async ({
+          where,
+        }: {
+          where?: { userId?: string; postId?: { in?: string[] } };
+        }): Promise<TestPostView[]> =>
+          postViews.filter((view) => {
+            if (where?.userId && view.userId !== where.userId) {
+              return false;
+            }
+
+            if (where?.postId?.in && !where.postId.in.includes(view.postId)) {
+              return false;
+            }
+
+            return true;
+          }),
+      ),
+      upsert: jest.fn(
+        async ({
+          where,
+          create,
+          update,
+        }: {
+          where: { postId_userId: { postId: string; userId: string } };
+          create: Omit<TestPostView, 'id' | 'createdAt' | 'updatedAt'>;
+          update: Partial<Pick<TestPostView, 'viewedAt'>>;
+        }): Promise<TestPostView> => {
+          const existing = postViews.find(
+            (view) =>
+              view.postId === where.postId_userId.postId &&
+              view.userId === where.postId_userId.userId,
+          );
+
+          if (existing) {
+            Object.assign(existing, update, {
+              updatedAt: new Date('2026-03-31T12:30:00.000Z'),
+            });
+            return existing;
+          }
+
+          const now = new Date('2026-03-31T12:30:00.000Z');
+          const view: TestPostView = {
+            id: `seed-post-view-${postViews.length + 1}`,
+            postId: create.postId,
+            userId: create.userId,
+            viewedAt: create.viewedAt,
+            createdAt: now,
+            updatedAt: now,
+          };
+          postViews.push(view);
+          return view;
+        },
+      ),
+      deleteMany: jest.fn(
+        async ({
+          where,
+        }: {
+          where?: { userId?: string; postId?: { in?: string[] } };
+        }): Promise<{ count: number }> => {
+          const before = postViews.length;
+          postViews = postViews.filter((view) => {
+            if (where?.userId && view.userId !== where.userId) {
+              return true;
+            }
+
+            if (where?.postId?.in && !where.postId.in.includes(view.postId)) {
+              return true;
+            }
+
+            return false;
+          });
+
+          return { count: before - postViews.length };
+        },
+      ),
+    },
   };
 
   beforeEach(async () => {
@@ -549,6 +641,7 @@ describe('Posts and Reviews (e2e)', () => {
     boardingDetails = [];
     reviewLogs = [];
     favorites = [];
+    postViews = [];
 
     prismaService.onModuleInit.mockReset();
     prismaService.$transaction.mockClear();
@@ -571,6 +664,9 @@ describe('Posts and Reviews (e2e)', () => {
     prismaService.reviewLog.findMany.mockClear();
     prismaService.favorite.findMany.mockClear();
     prismaService.favorite.findUnique.mockClear();
+    prismaService.postView.findMany.mockClear();
+    prismaService.postView.upsert.mockClear();
+    prismaService.postView.deleteMany.mockClear();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -847,6 +943,127 @@ describe('Posts and Reviews (e2e)', () => {
       });
   });
 
+  it('records feed views, skips seen cards, and starts a new cycle after all are seen', async () => {
+    const author = seedUser({ phoneAuthorized: true, nickname: '首页作者' });
+    const viewer = seedUser({ phoneAuthorized: true, nickname: '浏览用户' });
+    const newestPost = seedPost({
+      type: PostType.PET_SOCIAL,
+      serviceCategory: null,
+      status: PostStatus.APPROVED,
+      authorId: author.id,
+      title: '第一张卡片',
+      content: '最新内容',
+      createdAt: new Date('2026-03-31T09:03:00.000Z'),
+    });
+    const middlePost = seedPost({
+      type: PostType.PET_SOCIAL,
+      serviceCategory: null,
+      status: PostStatus.APPROVED,
+      authorId: author.id,
+      title: '第二张卡片',
+      content: '中间内容',
+      createdAt: new Date('2026-03-31T09:02:00.000Z'),
+    });
+    const oldestPost = seedPost({
+      type: PostType.PET_SOCIAL,
+      serviceCategory: null,
+      status: PostStatus.APPROVED,
+      authorId: author.id,
+      title: '第三张卡片',
+      content: '较早内容',
+      createdAt: new Date('2026-03-31T09:01:00.000Z'),
+    });
+    for (const post of [newestPost, middlePost, oldestPost]) {
+      seedAsset(post.id, `https://example.com/${post.id}.jpg`);
+    }
+
+    await request(app.getHttpServer())
+      .post('/api/posts/feed')
+      .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
+      .query({ channel: 'PET_SOCIAL', page: 1, pageSize: 2 })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.data.items.map((item: { id: string }) => item.id)).toEqual([
+          newestPost.id,
+          middlePost.id,
+        ]);
+      });
+
+    expect(postViews.map((view) => view.postId).sort()).toEqual(
+      [newestPost.id, middlePost.id].sort(),
+    );
+
+    await request(app.getHttpServer())
+      .post('/api/posts/feed')
+      .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
+      .query({ channel: 'PET_SOCIAL', page: 1, pageSize: 2 })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.data.items.map((item: { id: string }) => item.id)).toEqual([
+          oldestPost.id,
+        ]);
+      });
+
+    expect(postViews.map((view) => view.postId).sort()).toEqual(
+      [newestPost.id, middlePost.id, oldestPost.id].sort(),
+    );
+
+    await request(app.getHttpServer())
+      .post('/api/posts/feed')
+      .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
+      .query({ channel: 'PET_SOCIAL', page: 1, pageSize: 2 })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.data.items.map((item: { id: string }) => item.id)).toEqual([
+          newestPost.id,
+          middlePost.id,
+        ]);
+      });
+
+    expect(postViews.map((view) => view.postId).sort()).toEqual(
+      [newestPost.id, middlePost.id].sort(),
+    );
+  });
+
+  it('keeps one latest detail view per user and post', async () => {
+    const author = seedUser({ phoneAuthorized: true });
+    const viewer = seedUser({ phoneAuthorized: true, nickname: '看帖用户' });
+    const approvedPost = seedPost({
+      type: PostType.PET_SOCIAL,
+      serviceCategory: null,
+      status: PostStatus.APPROVED,
+      authorId: author.id,
+      title: '详情浏览记录',
+      content: '重复打开详情页',
+    });
+    seedAsset(approvedPost.id, 'https://example.com/detail-view.jpg');
+    seedPostView(
+      approvedPost.id,
+      viewer.id,
+      new Date('2026-03-31T08:00:00.000Z'),
+    );
+
+    await request(app.getHttpServer())
+      .post(`/api/posts/${approvedPost.id}`)
+      .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post(`/api/posts/${approvedPost.id}`)
+      .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
+      .expect(200);
+
+    expect(
+      postViews.filter(
+        (view) => view.postId === approvedPost.id && view.userId === viewer.id,
+      ),
+    ).toHaveLength(1);
+    expect(postViews[0].viewedAt.getTime()).toBeGreaterThan(
+      new Date('2026-03-31T08:00:00.000Z').getTime(),
+    );
+    expect(prismaService.postView.upsert).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects a non-author trying to view a non-approved detail page', async () => {
     const author = seedUser({ phoneAuthorized: true });
     const viewer = seedUser({ phoneAuthorized: true, nickname: '其他用户' });
@@ -958,7 +1175,11 @@ describe('Posts and Reviews (e2e)', () => {
       approvedAt: new Date('2026-03-31T09:50:00.000Z'),
     });
 
-    for (const post of [pendingServicePost, rejectedServicePost, petSocialPost]) {
+    for (const post of [
+      pendingServicePost,
+      rejectedServicePost,
+      petSocialPost,
+    ]) {
       await request(app.getHttpServer())
         .post(`/api/posts/${post.id}/offline`)
         .set('Authorization', bearer(miniappTokenService.sign(author.id)))
@@ -1348,8 +1569,12 @@ describe('Posts and Reviews (e2e)', () => {
       rejectedAt: overrides.rejectedAt ?? null,
       completedAt: overrides.completedAt ?? null,
       offlineAt: overrides.offlineAt ?? null,
-      createdAt: overrides.createdAt ?? new Date(`2026-03-31T0${posts.length}:00:00.000Z`),
-      updatedAt: overrides.updatedAt ?? new Date(`2026-03-31T0${posts.length}:00:00.000Z`),
+      createdAt:
+        overrides.createdAt ??
+        new Date(`2026-03-31T0${posts.length}:00:00.000Z`),
+      updatedAt:
+        overrides.updatedAt ??
+        new Date(`2026-03-31T0${posts.length}:00:00.000Z`),
     };
     posts.push(post);
     return post;
@@ -1361,7 +1586,8 @@ describe('Posts and Reviews (e2e)', () => {
       postId,
       type: 'IMAGE',
       url,
-      sortOrder: postAssets.filter((candidate) => candidate.postId === postId).length,
+      sortOrder: postAssets.filter((candidate) => candidate.postId === postId)
+        .length,
       createdAt: new Date('2026-03-31T08:30:00.000Z'),
     };
     postAssets.push(asset);
@@ -1413,9 +1639,7 @@ describe('Posts and Reviews (e2e)', () => {
       reviewerId: adminUsers[0]?.id ?? 'admin-1',
       action,
       reason,
-      createdAt: new Date(
-        `2026-03-31T1${reviewLogs.length}:00:00.000Z`,
-      ),
+      createdAt: new Date(`2026-03-31T1${reviewLogs.length}:00:00.000Z`),
     };
     reviewLogs.push(log);
     return log;
@@ -1430,6 +1654,19 @@ describe('Posts and Reviews (e2e)', () => {
     };
     favorites.push(favorite);
     return favorite;
+  }
+
+  function seedPostView(postId: string, userId: string, viewedAt = new Date()) {
+    const view: TestPostView = {
+      id: `seed-post-view-${postViews.length + 1}`,
+      postId,
+      userId,
+      viewedAt,
+      createdAt: viewedAt,
+      updatedAt: viewedAt,
+    };
+    postViews.push(view);
+    return view;
   }
 
   function filterPosts(where: Record<string, unknown> = {}) {
@@ -1450,6 +1687,15 @@ describe('Posts and Reviews (e2e)', () => {
           return (value as { in: unknown[] }).in.includes(candidate);
         }
 
+        if (
+          typeof value === 'object' &&
+          value !== null &&
+          'notIn' in value &&
+          Array.isArray((value as { notIn: unknown[] }).notIn)
+        ) {
+          return !(value as { notIn: unknown[] }).notIn.includes(candidate);
+        }
+
         return candidate === value;
       });
     });
@@ -1462,7 +1708,8 @@ describe('Posts and Reviews (e2e)', () => {
       assets: postAssets
         .filter((asset) => asset.postId === post.id)
         .sort((left, right) => left.sortOrder - right.sortOrder),
-      contact: postContacts.find((contact) => contact.postId === post.id) ?? null,
+      contact:
+        postContacts.find((contact) => contact.postId === post.id) ?? null,
       adoptionDetail:
         adoptionDetails.find((detail) => detail.postId === post.id) ?? null,
       secondHandDetail:
@@ -1475,11 +1722,14 @@ describe('Posts and Reviews (e2e)', () => {
         boardingDetails.find((detail) => detail.postId === post.id) ?? null,
       reviewLogs: reviewLogs
         .filter((log) => log.postId === post.id)
-        .sort((left, right) => right.createdAt.getTime() - left.createdAt.getTime()),
+        .sort(
+          (left, right) => right.createdAt.getTime() - left.createdAt.getTime(),
+        ),
       _count: {
         likes: 0,
         comments: 0,
-        favorites: favorites.filter((favorite) => favorite.postId === post.id).length,
+        favorites: favorites.filter((favorite) => favorite.postId === post.id)
+          .length,
       },
     };
   }

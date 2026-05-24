@@ -113,6 +113,7 @@ model User {
   comments               Comment[]
   likes                  Like[]
   favorites              Favorite[]
+  views                  PostView[]
   notifications          Notification[]
   initiatedConversations Conversation[] @relation("ConversationInitiator")
   receivedConversations  Conversation[] @relation("ConversationReceiver")
@@ -143,23 +144,23 @@ model AdminUser {
 }
 
 model Post {
-  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  id                String             @id @default(auto()) @map("_id") @db.ObjectId
   type              PostType
   serviceCategory   ServiceCategory?
   title             String
   content           String
   city              String
-  status            PostStatus        @default(PENDING)
-  authorId          String            @db.ObjectId
-  coverAssetId      String?           @db.ObjectId
+  status            PostStatus         @default(PENDING)
+  authorId          String             @db.ObjectId
+  coverAssetId      String?            @db.ObjectId
   publishedAt       DateTime?
   approvedAt        DateTime?
   rejectedAt        DateTime?
   completedAt       DateTime?
   offlineAt         DateTime?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  author            User              @relation(fields: [authorId], references: [id])
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  author            User               @relation(fields: [authorId], references: [id])
   assets            PostAsset[]
   contact           PostContact?
   adoptionDetail    AdoptionDetail?
@@ -170,6 +171,7 @@ model Post {
   comments          Comment[]
   likes             Like[]
   favorites         Favorite[]
+  views             PostView[]
   notifications     Notification[]
   conversations     Conversation[]
   reviewLogs        ReviewLog[]
@@ -177,6 +179,21 @@ model Post {
   @@index([status, type, createdAt])
   @@index([status, serviceCategory, city, createdAt])
   @@index([authorId, createdAt])
+}
+
+model PostView {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  postId    String   @db.ObjectId
+  userId    String   @db.ObjectId
+  viewedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  post      Post     @relation(fields: [postId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+  @@index([userId, viewedAt])
+  @@index([postId, viewedAt])
 }
 
 model PostAsset {
@@ -203,16 +220,16 @@ model PostContact {
 }
 
 model AdoptionDetail {
-  id                   String   @id @default(auto()) @map("_id") @db.ObjectId
-  postId               String   @unique @db.ObjectId
+  id                   String          @id @default(auto()) @map("_id") @db.ObjectId
+  postId               String          @unique @db.ObjectId
   petType              String
   age                  String
   gender               String
   neuteredStatus       NeuteredStatus?
   adoptionRequirements String
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-  post                 Post     @relation(fields: [postId], references: [id])
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  post                 Post            @relation(fields: [postId], references: [id])
 }
 
 model OtherDetail {
@@ -278,16 +295,16 @@ model Notification {
 }
 
 model Conversation {
-  id          String             @id @default(auto()) @map("_id") @db.ObjectId
-  postId      String             @db.ObjectId
-  initiatorId String             @db.ObjectId
-  receiverId  String             @db.ObjectId
-  status      ConversationStatus @default(INIT)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  post        Post               @relation(fields: [postId], references: [id])
-  initiator   User               @relation("ConversationInitiator", fields: [initiatorId], references: [id])
-  receiver    User               @relation("ConversationReceiver", fields: [receiverId], references: [id])
+  id          String                @id @default(auto()) @map("_id") @db.ObjectId
+  postId      String                @db.ObjectId
+  initiatorId String                @db.ObjectId
+  receiverId  String                @db.ObjectId
+  status      ConversationStatus    @default(INIT)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
+  post        Post                  @relation(fields: [postId], references: [id])
+  initiator   User                  @relation("ConversationInitiator", fields: [initiatorId], references: [id])
+  receiver    User                  @relation("ConversationReceiver", fields: [receiverId], references: [id])
   messages    ConversationMessage[]
 
   @@unique([postId, initiatorId])

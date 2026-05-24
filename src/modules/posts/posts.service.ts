@@ -47,9 +47,8 @@ export class PostsService {
   constructor(private readonly prismaService: PrismaService) {}
 
   async getFeed(dto: FeedQueryDto, viewer?: User | null) {
-    const page = dto.page ?? 1;
     const pageSize = dto.pageSize ?? 10;
-    const where = {
+    const where: Prisma.PostWhereInput = {
       status: PostStatus.APPROVED,
       type: dto.channel,
       ...(dto.channel === PostType.SERVICE && dto.serviceCategory
@@ -58,18 +57,40 @@ export class PostsService {
       ...(dto.city ? { city: dto.city } : {}),
     };
 
-    const [posts, total] = await Promise.all([
-      this.prismaService.post.findMany({
-        where,
-        include: postInclude,
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-        orderBy: {
-          createdAt: 'desc',
+    const fullPostIds = await this.getFeedPostIds(where);
+
+    if (fullPostIds.length === 0) {
+      return toPagedResult([], 1, pageSize, 0);
+    }
+
+    let availablePostIds = fullPostIds;
+
+    if (viewer?.id) {
+      const viewedPostIds = await this.getViewedPostIds(fullPostIds, viewer.id);
+      const unseenPostIds = fullPostIds.filter(
+        (postId) => !viewedPostIds.has(postId),
+      );
+
+      if (unseenPostIds.length > 0) {
+        availablePostIds = unseenPostIds;
+      } else {
+        await this.resetViewedPostIds(fullPostIds, viewer.id);
+      }
+    }
+
+    const posts = await this.prismaService.post.findMany({
+      where: {
+        ...where,
+        id: {
+          in: availablePostIds,
         },
-      }),
-      this.prismaService.post.count({ where }),
-    ]);
+      },
+      include: postInclude,
+      take: pageSize,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
 
     const favoritedPostIds = viewer?.id
       ? await this.getFavoritedPostIds(
@@ -78,15 +99,22 @@ export class PostsService {
         )
       : new Set<string>();
 
+    if (viewer?.id) {
+      await this.recordPostViews(
+        posts.map((post) => post.id),
+        viewer.id,
+      );
+    }
+
     return toPagedResult(
       posts.map((post) =>
         toFeedItem(post, {
           favorited: favoritedPostIds.has(post.id),
         }),
       ),
-      page,
+      1,
       pageSize,
-      total,
+      availablePostIds.length,
     );
   }
 
@@ -101,6 +129,10 @@ export class PostsService {
       viewer?.id === undefined
         ? { liked: false, favorited: false }
         : await this.getViewerState(postId, viewer.id);
+
+    if (viewer?.id) {
+      await this.recordPostViews([postId], viewer.id);
+    }
 
     return toPostDetail(post, viewer, viewerState);
   }
@@ -336,6 +368,113 @@ export class PostsService {
       })) ?? [];
 
     return new Set(favorites.map((favorite) => favorite.postId));
+  }
+
+  private async getFeedPostIds(where: Prisma.PostWhereInput) {
+    const posts = await this.prismaService.post.findMany({
+      where,
+      select: {
+        id: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return posts.map((post) => post.id);
+  }
+
+  private async getViewedPostIds(postIds: string[], userId: string) {
+    if (postIds.length === 0) {
+      return new Set<string>();
+    }
+
+    const prisma = this.prismaService as PrismaService & {
+      postView?: {
+        findMany: (args: {
+          where: { userId: string; postId: { in: string[] } };
+          select: { postId: true };
+        }) => Promise<Array<{ postId: string }>>;
+      };
+    };
+
+    const views =
+      (await prisma.postView?.findMany?.({
+        where: {
+          userId,
+          postId: {
+            in: postIds,
+          },
+        },
+        select: {
+          postId: true,
+        },
+      })) ?? [];
+
+    return new Set(views.map((view) => view.postId));
+  }
+
+  private async resetViewedPostIds(postIds: string[], userId: string) {
+    if (postIds.length === 0) {
+      return;
+    }
+
+    const prisma = this.prismaService as PrismaService & {
+      postView?: {
+        deleteMany: (args: {
+          where: { userId: string; postId: { in: string[] } };
+        }) => Promise<unknown>;
+      };
+    };
+
+    await prisma.postView?.deleteMany?.({
+      where: {
+        userId,
+        postId: {
+          in: postIds,
+        },
+      },
+    });
+  }
+
+  private async recordPostViews(postIds: string[], userId: string) {
+    const uniquePostIds = [...new Set(postIds)];
+
+    if (uniquePostIds.length === 0) {
+      return;
+    }
+
+    const prisma = this.prismaService as PrismaService & {
+      postView?: {
+        upsert: (args: {
+          where: { postId_userId: { postId: string; userId: string } };
+          create: { postId: string; userId: string; viewedAt: Date };
+          update: { viewedAt: Date };
+        }) => Promise<unknown>;
+      };
+    };
+    const viewedAt = new Date();
+
+    await Promise.all(
+      uniquePostIds.map((postId) =>
+        prisma.postView?.upsert?.({
+          where: {
+            postId_userId: {
+              postId,
+              userId,
+            },
+          },
+          create: {
+            postId,
+            userId,
+            viewedAt,
+          },
+          update: {
+            viewedAt,
+          },
+        }),
+      ),
+    );
   }
 
   private validateCreatePayload(dto: CreatePostDto): DetailFieldName | null {
