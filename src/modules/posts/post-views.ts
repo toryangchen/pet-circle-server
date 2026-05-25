@@ -141,14 +141,25 @@ export function toPostDetail(
 }
 
 export function toMyPostItem(post: HydratedPost) {
+  const stats = getStats(post);
+
   return {
     id: post.id,
     type: post.type,
     serviceCategory: post.serviceCategory,
     title: post.title,
+    summary: post.content,
+    coverImage: getCoverImage(post),
     city: post.city,
     status: post.status,
     rejectReason: getRejectReason(post),
+    author: post.author?.nickname ?? null,
+    authorAvatarUrl: post.author?.avatarUrl ?? null,
+    stats,
+    viewerState: {
+      favorited: false,
+    },
+    route: `/pages/detail/pet-social/index?id=${post.id}`,
     createdAt: post.createdAt,
     updatedAt: post.updatedAt,
   };

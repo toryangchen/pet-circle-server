@@ -10,6 +10,8 @@ describe('PostsService', () => {
 
   const prismaService = {
     post: {
+      findMany: jest.fn(),
+      count: jest.fn(),
       findUnique: jest.fn(),
       updateMany: jest.fn(),
     },
@@ -22,6 +24,8 @@ describe('PostsService', () => {
   };
 
   beforeEach(async () => {
+    prismaService.post.findMany.mockReset();
+    prismaService.post.count.mockReset();
     prismaService.post.findUnique.mockReset();
     prismaService.post.updateMany.mockReset();
     prismaService.like.findUnique.mockReset();
@@ -45,6 +49,59 @@ describe('PostsService', () => {
       where: {
         status: CommentStatus.NORMAL,
       },
+    });
+  });
+
+  it('returns card-ready fields for my posts', async () => {
+    prismaService.post.findMany.mockResolvedValue([
+      {
+        id: 'post-1',
+        authorId: 'user-1',
+        type: PostType.PET_SOCIAL,
+        serviceCategory: null,
+        title: '猫咪第一次晒太阳',
+        content: '今天在小区楼下晒了半小时太阳。',
+        city: '西安',
+        status: PostStatus.APPROVED,
+        assets: [{ url: 'https://example.test/cat.png' }],
+        author: {
+          nickname: '团子家',
+          avatarUrl: 'https://example.test/avatar.png',
+        },
+        reviewLogs: [],
+        _count: {
+          likes: 3,
+          comments: 2,
+          favorites: 1,
+        },
+        createdAt: new Date('2026-04-01T08:00:00.000Z'),
+        updatedAt: new Date('2026-04-01T08:05:00.000Z'),
+      },
+    ]);
+    prismaService.post.count.mockResolvedValue(1);
+
+    await expect(
+      service.getMyPosts('user-1', { page: 1, pageSize: 10 }),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          id: 'post-1',
+          title: '猫咪第一次晒太阳',
+          summary: '今天在小区楼下晒了半小时太阳。',
+          coverImage: 'https://example.test/cat.png',
+          author: '团子家',
+          authorAvatarUrl: 'https://example.test/avatar.png',
+          stats: {
+            likeCount: 3,
+            commentCount: 2,
+            favoriteCount: 1,
+          },
+          viewerState: {
+            favorited: false,
+          },
+        },
+      ],
+      total: 1,
     });
   });
 
