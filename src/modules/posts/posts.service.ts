@@ -64,26 +64,11 @@ export class PostsService {
       return toPagedResult([], 1, pageSize, 0);
     }
 
-    let availablePostIds = fullPostIds;
-
-    if (viewer?.id) {
-      const viewedPostIds = await this.getViewedPostIds(fullPostIds, viewer.id);
-      const unseenPostIds = fullPostIds.filter(
-        (postId) => !viewedPostIds.has(postId),
-      );
-
-      if (unseenPostIds.length > 0) {
-        availablePostIds = unseenPostIds;
-      } else {
-        await this.resetViewedPostIds(fullPostIds, viewer.id);
-      }
-    }
-
     const posts = await this.prismaService.post.findMany({
       where: {
         ...where,
         id: {
-          in: availablePostIds,
+          in: fullPostIds,
         },
       },
       include: postInclude,
@@ -100,13 +85,6 @@ export class PostsService {
         )
       : new Set<string>();
 
-    if (viewer?.id) {
-      await this.recordPostViews(
-        posts.map((post) => post.id),
-        viewer.id,
-      );
-    }
-
     return toPagedResult(
       posts.map((post) =>
         toFeedItem(post, {
@@ -115,7 +93,7 @@ export class PostsService {
       ),
       1,
       pageSize,
-      availablePostIds.length,
+      fullPostIds.length,
     );
   }
 
@@ -438,59 +416,6 @@ export class PostsService {
     });
 
     return posts.map((post) => post.id);
-  }
-
-  private async getViewedPostIds(postIds: string[], userId: string) {
-    if (postIds.length === 0) {
-      return new Set<string>();
-    }
-
-    const prisma = this.prismaService as PrismaService & {
-      postView?: {
-        findMany: (args: {
-          where: { userId: string; postId: { in: string[] } };
-          select: { postId: true };
-        }) => Promise<Array<{ postId: string }>>;
-      };
-    };
-
-    const views =
-      (await prisma.postView?.findMany?.({
-        where: {
-          userId,
-          postId: {
-            in: postIds,
-          },
-        },
-        select: {
-          postId: true,
-        },
-      })) ?? [];
-
-    return new Set(views.map((view) => view.postId));
-  }
-
-  private async resetViewedPostIds(postIds: string[], userId: string) {
-    if (postIds.length === 0) {
-      return;
-    }
-
-    const prisma = this.prismaService as PrismaService & {
-      postView?: {
-        deleteMany: (args: {
-          where: { userId: string; postId: { in: string[] } };
-        }) => Promise<unknown>;
-      };
-    };
-
-    await prisma.postView?.deleteMany?.({
-      where: {
-        userId,
-        postId: {
-          in: postIds,
-        },
-      },
-    });
   }
 
   private async recordPostViews(postIds: string[], userId: string) {

@@ -943,7 +943,7 @@ describe('Posts and Reviews (e2e)', () => {
       });
   });
 
-  it('records feed views, skips seen cards, and starts a new cycle after all are seen', async () => {
+  it('does not record feed card impressions as view history', async () => {
     const author = seedUser({ phoneAuthorized: true, nickname: '首页作者' });
     const viewer = seedUser({ phoneAuthorized: true, nickname: '浏览用户' });
     const newestPost = seedPost({
@@ -989,24 +989,7 @@ describe('Posts and Reviews (e2e)', () => {
         ]);
       });
 
-    expect(postViews.map((view) => view.postId).sort()).toEqual(
-      [newestPost.id, middlePost.id].sort(),
-    );
-
-    await request(app.getHttpServer())
-      .post('/api/posts/feed')
-      .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
-      .query({ channel: 'PET_SOCIAL', page: 1, pageSize: 2 })
-      .expect(200)
-      .expect(({ body }) => {
-        expect(body.data.items.map((item: { id: string }) => item.id)).toEqual([
-          oldestPost.id,
-        ]);
-      });
-
-    expect(postViews.map((view) => view.postId).sort()).toEqual(
-      [newestPost.id, middlePost.id, oldestPost.id].sort(),
-    );
+    expect(postViews).toEqual([]);
 
     await request(app.getHttpServer())
       .post('/api/posts/feed')
@@ -1020,8 +1003,63 @@ describe('Posts and Reviews (e2e)', () => {
         ]);
       });
 
+    expect(postViews).toEqual([]);
+
+    await request(app.getHttpServer())
+      .post('/api/posts/feed')
+      .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
+      .query({ channel: 'PET_SOCIAL', page: 1, pageSize: 2 })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.data.items.map((item: { id: string }) => item.id)).toEqual([
+          newestPost.id,
+          middlePost.id,
+        ]);
+      });
+
+    expect(postViews).toEqual([]);
+  });
+
+  it('does not use feed requests to reset detail view history', async () => {
+    const author = seedUser({ phoneAuthorized: true, nickname: '历史作者' });
+    const viewer = seedUser({ phoneAuthorized: true, nickname: '历史用户' });
+    const newestPost = seedPost({
+      type: PostType.PET_SOCIAL,
+      serviceCategory: null,
+      status: PostStatus.APPROVED,
+      authorId: author.id,
+      title: '已进详情的第一张卡片',
+      content: '历史内容 1',
+      createdAt: new Date('2026-03-31T09:03:00.000Z'),
+    });
+    const olderPost = seedPost({
+      type: PostType.PET_SOCIAL,
+      serviceCategory: null,
+      status: PostStatus.APPROVED,
+      authorId: author.id,
+      title: '已进详情的第二张卡片',
+      content: '历史内容 2',
+      createdAt: new Date('2026-03-31T09:02:00.000Z'),
+    });
+    for (const post of [newestPost, olderPost]) {
+      seedAsset(post.id, `https://example.com/history-${post.id}.jpg`);
+      seedPostView(post.id, viewer.id, new Date('2026-03-31T10:00:00.000Z'));
+    }
+
+    await request(app.getHttpServer())
+      .post('/api/posts/feed')
+      .set('Authorization', bearer(miniappTokenService.sign(viewer.id)))
+      .query({ channel: 'PET_SOCIAL', page: 1, pageSize: 2 })
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body.data.items.map((item: { id: string }) => item.id)).toEqual([
+          newestPost.id,
+          olderPost.id,
+        ]);
+      });
+
     expect(postViews.map((view) => view.postId).sort()).toEqual(
-      [newestPost.id, middlePost.id].sort(),
+      [newestPost.id, olderPost.id].sort(),
     );
   });
 
