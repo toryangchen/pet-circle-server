@@ -1,11 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PostStatus, type User } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
-import {
-  postInclude,
-  toFeedItem,
-  toPagedResult,
-} from '../posts/post-views';
+import { postInclude, toFeedItem, toPagedResult } from '../posts/post-views';
 import { FavoritesQueryDto } from './dto/favorites-query.dto';
 
 @Injectable()
@@ -86,7 +82,7 @@ export class FavoritesService {
 
     const items = favorites
       .slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize)
-      .map((favorite) => toFeedItem(favorite.post));
+      .map((favorite) => toFeedItem(favorite.post, { favorited: true }));
 
     return toPagedResult(items, page, pageSize, favorites.length);
   }

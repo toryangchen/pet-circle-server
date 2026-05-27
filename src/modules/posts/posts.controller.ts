@@ -16,6 +16,7 @@ import { MiniappAuthGuard } from '../auth/miniapp-auth.guard';
 import type { AuthenticatedMiniappUser } from '../auth/auth.types';
 import { CreatePostDto } from './dto/create-post.dto';
 import { FeedQueryDto } from './dto/feed-query.dto';
+import { HistoryQueryDto } from './dto/history-query.dto';
 import { MyPostsQueryDto } from './dto/my-posts-query.dto';
 import { PostsService } from './posts.service';
 import { ConversationsService } from '../conversations/conversations.service';
@@ -44,6 +45,15 @@ export class PostsController {
     @Query() dto: MyPostsQueryDto,
   ) {
     return ok(await this.postsService.getMyPosts(user.id, dto));
+  }
+
+  @Post('history')
+  @HttpCode(200)
+  async getViewHistory(
+    @CurrentMiniappUser() user: AuthenticatedMiniappUser,
+    @Query() dto: HistoryQueryDto,
+  ) {
+    return ok(await this.postsService.getViewHistory(user.id, dto));
   }
 
   @Post(':id')

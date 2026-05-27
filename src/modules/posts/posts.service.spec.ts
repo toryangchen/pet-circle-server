@@ -20,6 +20,11 @@ describe('PostsService', () => {
     },
     favorite: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+    },
+    postView: {
+      findMany: jest.fn(),
+      count: jest.fn(),
     },
   };
 
@@ -30,6 +35,9 @@ describe('PostsService', () => {
     prismaService.post.updateMany.mockReset();
     prismaService.like.findUnique.mockReset();
     prismaService.favorite.findUnique.mockReset();
+    prismaService.favorite.findMany.mockReset();
+    prismaService.postView.findMany.mockReset();
+    prismaService.postView.count.mockReset();
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -103,6 +111,72 @@ describe('PostsService', () => {
       ],
       total: 1,
     });
+  });
+
+  it('returns viewed posts ordered by latest view time', async () => {
+    prismaService.postView.findMany.mockResolvedValue([
+      {
+        viewedAt: new Date('2026-04-01T10:00:00.000Z'),
+        post: {
+          id: 'post-viewed-1',
+          type: PostType.PET_SOCIAL,
+          serviceCategory: null,
+          title: '刚看过的小猫',
+          content: '刚刚打开详情页。',
+          city: '西安',
+          status: PostStatus.APPROVED,
+          assets: [{ url: 'https://example.test/viewed-cat.png' }],
+          author: {
+            nickname: '浏览作者',
+            avatarUrl: null,
+          },
+          _count: {
+            likes: 4,
+            comments: 1,
+            favorites: 2,
+          },
+          createdAt: new Date('2026-04-01T09:00:00.000Z'),
+        },
+      },
+    ]);
+    prismaService.postView.count.mockResolvedValue(1);
+    prismaService.favorite.findMany.mockResolvedValue([
+      { postId: 'post-viewed-1' },
+    ]);
+
+    await expect(
+      service.getViewHistory('user-1', { page: 1, pageSize: 10 }),
+    ).resolves.toMatchObject({
+      items: [
+        {
+          id: 'post-viewed-1',
+          title: '刚看过的小猫',
+          summary: '刚刚打开详情页。',
+          coverImage: 'https://example.test/viewed-cat.png',
+          viewedAt: new Date('2026-04-01T10:00:00.000Z'),
+          viewerState: {
+            favorited: true,
+          },
+        },
+      ],
+      total: 1,
+    });
+
+    expect(prismaService.postView.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          userId: 'user-1',
+          post: {
+            is: {
+              status: PostStatus.APPROVED,
+            },
+          },
+        },
+        orderBy: {
+          viewedAt: 'desc',
+        },
+      }),
+    );
   });
 
   it('allows authors to offline approved service posts', async () => {

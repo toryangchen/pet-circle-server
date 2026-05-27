@@ -16,6 +16,7 @@ import { PhoneAuthorizationRequiredException } from '../../common/exceptions/pho
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { FeedQueryDto } from './dto/feed-query.dto';
+import { HistoryQueryDto } from './dto/history-query.dto';
 import { MyPostsQueryDto } from './dto/my-posts-query.dto';
 import {
   postInclude,
@@ -145,46 +146,48 @@ export class PostsService {
     const detailField = this.validateCreatePayload(dto);
 
     const created = await this.prismaService.$transaction(async (tx) => {
-        const post = await tx.post.create({
+      const post = await tx.post.create({
+        data: {
+          type: dto.type,
+          serviceCategory:
+            dto.type === PostType.SERVICE
+              ? (dto.serviceCategory ?? null)
+              : null,
+          title: dto.title.trim(),
+          content: dto.content.trim(),
+          city: dto.city.trim(),
+          status: PostStatus.APPROVED,
+          publishedAt: new Date(),
+          approvedAt: new Date(),
+          authorId: author.id,
+        },
+      });
+
+      await tx.postAsset.createMany({
+        data: dto.images.map((url, index) => ({
+          postId: post.id,
+          url,
+          sortOrder: index,
+        })),
+      });
+
+      if (this.hasContactData(dto.contact)) {
+        await tx.postContact.create({
           data: {
-            type: dto.type,
-            serviceCategory:
-              dto.type === PostType.SERVICE ? dto.serviceCategory ?? null : null,
-            title: dto.title.trim(),
-            content: dto.content.trim(),
-            city: dto.city.trim(),
-            status: PostStatus.APPROVED,
-            publishedAt: new Date(),
-            approvedAt: new Date(),
-            authorId: author.id,
+            postId: post.id,
+            wechatId: dto.contact.wechatId ?? null,
+            phone: dto.contact.phone ?? null,
+            contactName: dto.contact.contactName ?? null,
           },
         });
+      }
 
-        await tx.postAsset.createMany({
-          data: dto.images.map((url, index) => ({
-            postId: post.id,
-            url,
-            sortOrder: index,
-          })),
-        });
+      if (detailField) {
+        await this.createServiceDetail(tx, post.id, detailField, dto);
+      }
 
-        if (this.hasContactData(dto.contact)) {
-          await tx.postContact.create({
-            data: {
-              postId: post.id,
-              wechatId: dto.contact.wechatId ?? null,
-              phone: dto.contact.phone ?? null,
-              contactName: dto.contact.contactName ?? null,
-            },
-          });
-        }
-
-        if (detailField) {
-          await this.createServiceDetail(tx, post.id, detailField, dto);
-        }
-
-        return post;
-      });
+      return post;
+    });
 
     return {
       id: created.id,
@@ -216,12 +219,61 @@ export class PostsService {
     return toPagedResult(posts.map(toMyPostItem), page, pageSize, total);
   }
 
+  async getViewHistory(userId: string, dto: HistoryQueryDto) {
+    const page = dto.page ?? 1;
+    const pageSize = dto.pageSize ?? 10;
+    const where = {
+      userId,
+      post: {
+        is: {
+          status: PostStatus.APPROVED,
+        },
+      },
+    };
+
+    const [views, total] = await Promise.all([
+      this.prismaService.postView.findMany({
+        where,
+        include: {
+          post: {
+            include: postInclude,
+          },
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: {
+          viewedAt: 'desc',
+        },
+      }),
+      this.prismaService.postView.count({ where }),
+    ]);
+
+    const favoritedPostIds = await this.getFavoritedPostIds(
+      views.map((view) => view.post.id),
+      userId,
+    );
+
+    return toPagedResult(
+      views.map((view) => ({
+        ...toFeedItem(view.post, {
+          favorited: favoritedPostIds.has(view.post.id),
+        }),
+        viewedAt: view.viewedAt,
+      })),
+      page,
+      pageSize,
+      total,
+    );
+  }
+
   async offlinePost(postId: string, userId: string) {
     const post = await this.findPostOrThrow(postId);
     this.assertAuthor(post, userId);
 
     if (post.type !== PostType.SERVICE || post.status !== PostStatus.APPROVED) {
-      throw new ConflictException('Only approved service posts can be offlined.');
+      throw new ConflictException(
+        'Only approved service posts can be offlined.',
+      );
     }
 
     const updatedCount = await this.prismaService.post.updateMany({
@@ -252,7 +304,9 @@ export class PostsService {
     this.assertAuthor(post, userId);
 
     if (post.type !== PostType.SERVICE || post.status !== PostStatus.APPROVED) {
-      throw new ConflictException('Only approved service posts can be completed.');
+      throw new ConflictException(
+        'Only approved service posts can be completed.',
+      );
     }
 
     const updatedCount = await this.prismaService.post.updateMany({
@@ -269,7 +323,9 @@ export class PostsService {
     });
 
     if (updatedCount.count !== 1) {
-      throw new ConflictException('Only approved service posts can be completed.');
+      throw new ConflictException(
+        'Only approved service posts can be completed.',
+      );
     }
 
     return {
@@ -499,7 +555,9 @@ export class PostsService {
     }
 
     if (!dto.serviceCategory) {
-      throw new BadRequestException('Service posts require a service category.');
+      throw new BadRequestException(
+        'Service posts require a service category.',
+      );
     }
 
     const expectedDetailField = detailFieldByCategory[dto.serviceCategory];
